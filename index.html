@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>企微推送订阅</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --pri:#07c160; --txt:#1f2329; --mut:#8a8f99; --bd:#e5e6eb; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; background:var(--bg); color:var(--txt); }
+  .wrap { max-width:560px; margin:0 auto; padding:16px; }
+  h1 { font-size:20px; margin:8px 0 4px; }
+  .sub { color:var(--mut); font-size:13px; margin-bottom:16px; }
+  .tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .tab { flex:1; text-align:center; padding:10px; border-radius:10px; background:var(--card); border:1px solid var(--bd); cursor:pointer; font-size:14px; }
+  .tab.active { border-color:var(--pri); color:var(--pri); font-weight:600; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:16px; margin-bottom:14px; }
+  label { display:block; font-size:13px; color:var(--mut); margin:12px 0 6px; }
+  input, textarea, select { width:100%; padding:10px; border:1px solid var(--bd); border-radius:8px; font-size:14px; background:#fff; }
+  textarea { min-height:70px; resize:vertical; }
+  .row { display:flex; gap:10px; }
+  .row > * { flex:1; }
+  button { width:100%; padding:12px; border:0; border-radius:10px; background:var(--pri); color:#fff; font-size:15px; font-weight:600; margin-top:14px; cursor:pointer; }
+  button.ghost { background:#fff; color:var(--pri); border:1px solid var(--pri); width:auto; padding:4px 12px; margin:0; font-size:12px; }
+  .src { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #f0f1f3; font-size:14px; }
+  .src input { width:auto; }
+  .tag { display:inline-block; font-size:11px; color:var(--pri); background:#e8f8ee; padding:1px 6px; border-radius:6px; margin-left:4px; }
+  .grp { font-size:13px; color:var(--txt); font-weight:600; margin:14px 0 4px; }
+  .msg { font-size:13px; margin-top:10px; padding:8px 10px; border-radius:8px; display:none; }
+  .msg.ok { background:#e8f8ee; color:#07c160; display:block; }
+  .msg.err { background:#fdecec; color:#e54545; display:block; }
+  .msg.warn { background:#fff7e6; color:#d48806; display:block; }
+  .hint { font-size:12px; color:var(--mut); margin-top:6px; line-height:1.5; }
+  .hidden { display:none; }
+  .cap { font-size:12px; color:var(--mut); margin-top:8px; }
+  .schedbox { margin-top:8px; }
+  .foot { max-width:560px; margin:24px auto 18px; padding:0 16px; text-align:center; font-size:12px; color:var(--mut); line-height:1.9; }
+  .foot a { color:var(--mut); text-decoration:none; }
+  .foot a:hover { color:var(--pri); }
+  .foot .sep { margin:0 6px; color:#d0d3d9; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>推送订阅</h1>
+  <div class="sub">填自己的机器人链接（企业微信 / 飞书 / 钉钉），订阅 RSS 源与自定义内容频道</div>
+
+  <div class="tabs" id="tabs">
+    <div class="tab active" id="tabSub" onclick="switchTab('sub')">订阅</div>
+    <div class="tab" id="tabAdmin" onclick="switchTab('admin')">管理</div>
+  </div>
+
+  <!-- 退订 -->
+  <div id="pUnsub" class="hidden">
+    <div class="card">
+      <h3 style="margin-top:0">确认退订？</h3>
+      <p class="hint">退订后你将不再收到该系统的推送。</p>
+      <button id="unsubBtn">确认退订</button>
+      <div class="msg" id="unsubMsg"></div>
+    </div>
+  </div>
+
+  <!-- 订阅 -->
+  <div id="pSub">
+    <div class="card">
+      <label>你的机器人 Webhook 地址</label>
+      <input id="botUrl" placeholder="企微 / 飞书 / 钉钉 群机器人 Webhook" />
+      <div class="hint">群 → 添加群机器人 → 复制 Webhook（支持企业微信、飞书、钉钉）</div>
+
+      <div class="grp">RSS 源</div>
+      <div id="srcList"><div class="hint">加载中…</div></div>
+
+      <div class="grp">自定义内容频道</div>
+      <div id="chanList"><div class="hint">加载中…</div></div>
+
+      <label>关键词过滤（可选，最多 10 个）</label>
+      <input id="keywords" placeholder="用逗号分隔，如：AI,产品,融资（留空=全收）" />
+      <div class="hint">只接收标题/摘要包含这些词的 RSS 更新；自定义频道不受关键词影响</div>
+
+      <button onclick="doSubscribe()">订阅</button>
+      <div class="msg" id="subMsg"></div>
+    </div>
+    <div class="card">
+      <div class="cap">当前订阅人数：<span id="subCount">-</span></div>
+      <div class="cap">免费档约支持数万~十万订阅者（受 KV 单值 25MB 约束）；每日新增订阅上限约 1 万（写次数）。接近上限会提醒。</div>
+    </div>
+  </div>
+
+  <!-- 管理 -->
+  <div id="pAdmin" class="hidden">
+    <div class="card">
+      <label>管理员 Token</label>
+      <input id="token" placeholder="ADMIN_TOKEN" />
+      <div class="hint">与部署时设置的环境变量 ADMIN_TOKEN 一致</div>
+    </div>
+
+    <div class="card">
+      <label>新增 RSS 源</label>
+      <input id="srcName" placeholder="源名称，如：少数派" />
+      <input id="srcUrl" placeholder="RSS 地址，如：https://sspai.com/feed" style="margin-top:8px" />
+      <input id="srcCat" placeholder="分类标签（可选）" style="margin-top:8px" />
+      <button onclick="addSource()">添加源</button>
+      <div class="msg" id="srcMsg"></div>
+    </div>
+
+    <div class="card">
+      <label>新增自定义内容频道</label>
+      <input id="chName" placeholder="频道名称，如：每日鸡汤" />
+      <input id="chCat" placeholder="分类标签（可选）" style="margin-top:8px" />
+      <textarea id="chContent" placeholder="预设内容（频道定时自动发送时使用，可选）" style="margin-top:8px"></textarea>
+      <select id="chMode" style="margin-top:8px">
+        <option value="none">不定时（仅手动发布）</option>
+        <option value="daily">每天定时</option>
+        <option value="weekly">每周定时</option>
+        <option value="monthly">每月定时</option>
+        <option value="yearly">每年定时</option>
+      </select>
+      <div id="chSchedBox" class="schedbox hidden">
+        <div class="row">
+          <div><label>时</label><input id="chHour" type="number" min="0" max="23" value="9" /></div>
+          <div><label>分</label><input id="chMin" type="number" min="0" max="59" value="0" /></div>
+        </div>
+        <div class="row" id="chDowBox" style="display:none"><div><label>星期(0=周日)</label><input id="chDow" type="number" min="0" max="6" value="1" /></div></div>
+        <div class="row" id="chDomBox" style="display:none"><div><label>日期(1-31)</label><input id="chDom" type="number" min="1" max="31" value="1" /></div></div>
+        <div class="row" id="chYmdBox" style="display:none"><div><label>月(1-12)</label><input id="chMonth" type="number" min="1" max="12" value="1" /></div><div><label>日(1-31)</label><input id="chDate" type="number" min="1" max="31" value="1" /></div></div>
+      </div>
+      <button onclick="addChannel()">添加频道</button>
+      <div class="msg" id="chMsg"></div>
+      <div id="chList" class="hint" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <label>发布 / 推送</label>
+      <input id="pTitle" placeholder="标题" />
+      <textarea id="pContent" placeholder="正文内容"></textarea>
+      <input id="pUrl" placeholder="原文链接（可选）" style="margin-top:8px" />
+
+      <label>发送对象</label>
+      <select id="pTarget">
+        <option value="all">所有人</option>
+        <option value="channel">指定频道</option>
+      </select>
+      <select id="pChannel" class="hidden" style="margin-top:8px"></select>
+
+      <label>是否定时（给所有人）</label>
+      <select id="pMode">
+        <option value="now">立即发送</option>
+        <option value="daily">每天定时</option>
+        <option value="weekly">每周定时</option>
+        <option value="monthly">每月定时</option>
+        <option value="yearly">每年定时</option>
+      </select>
+      <div id="schedBox" class="schedbox hidden">
+        <div class="row">
+          <div><label>时</label><input id="pHour" type="number" min="0" max="23" value="9" /></div>
+          <div><label>分</label><input id="pMin" type="number" min="0" max="59" value="0" /></div>
+        </div>
+        <div class="row" id="dowBox" style="display:none"><div><label>星期(0=周日)</label><input id="pDow" type="number" min="0" max="6" value="1" /></div></div>
+        <div class="row" id="domBox" style="display:none"><div><label>日期(1-31)</label><input id="pDom" type="number" min="1" max="31" value="1" /></div></div>
+        <div class="row" id="ymdBox" style="display:none"><div><label>月(1-12)</label><input id="pMonth" type="number" min="1" max="12" value="1" /></div><div><label>日(1-31)</label><input id="pDate" type="number" min="1" max="31" value="1" /></div></div>
+      </div>
+
+      <button onclick="doPush()">发送</button>
+      <div class="msg" id="pushMsg"></div>
+    </div>
+
+    <div class="card">
+      <label>订阅管理（机器人地址已脱敏）</label>
+      <button class="ghost" style="width:auto" onclick="loadSubs()">刷新订阅列表</button>
+      <div id="subList" class="hint" style="margin-top:10px">点「刷新订阅列表」查看</div>
+    </div>
+
+    <div class="card">
+      <div class="cap">订阅人数：<span id="adminCount">-</span></div>
+      <div class="msg warn hidden" id="adminWarn"></div>
+    </div>
+  </div>
+</div>
+
+<footer class="foot">
+  <div>
+    <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">豫ICP备2024069686号</a>
+    <span class="sep">·</span>
+    <a href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=41132402411815" target="_blank" rel="noopener">豫公网安备41132402411815号</a>
+  </div>
+  <div style="margin-top:4px">
+    <a href="https://jinbufenzi.com/505.html" target="_blank" rel="noopener">投放广告联系管理员</a>
+  </div>
+</footer>
+
+<script>
+const api = (p, opt) => fetch(p, opt).then(r => r.json().catch(()=>({})));
+function switchTab(t){ document.getElementById('tabSub').classList.toggle('active', t==='sub'); document.getElementById('tabAdmin').classList.toggle('active', t==='admin'); document.getElementById('pSub').classList.toggle('hidden', t!=='sub'); document.getElementById('pAdmin').classList.toggle('hidden', t!=='admin'); }
+function show(id, ok, text, warn){ const e=document.getElementById(id); e.className='msg '+(warn?'warn':(ok?'ok':'err')); e.textContent=text; }
+const params = new URLSearchParams(location.search);
+const preSrc = params.get('source');
+const preChan = params.get('channel');
+
+async function loadSources(){
+  const list = await api('/api/sources');
+  const box = document.getElementById('srcList');
+  if(list.length){ box.innerHTML = list.map(s=>`<label class="src"><input type="checkbox" value="${s.id}" ${preSrc===s.id?'checked':''}/> ${s.name}${s.category?`<span class="tag">${s.category}</span>`:''}</label>`).join(''); }
+  else box.innerHTML = '<div class="hint">暂无源，去「管理」添加一个</div>';
+}
+async function loadChannels(){
+  const list = await api('/api/channels');
+  const box = document.getElementById('chanList');
+  if(list.length){ box.innerHTML = list.map(c=>`<label class="src"><input type="checkbox" value="${c.id}" ${preChan===c.id?'checked':''}/> ${c.name}${c.category?`<span class="tag">${c.category}</span>`:''}</label>`).join(''); }
+  else box.innerHTML = '<div class="hint">暂无频道，去「管理」添加</div>';
+  const cl = document.getElementById('chList');
+  if(cl) cl.innerHTML = list.length? list.map(c=>`<div class="src">${c.name} <button class="ghost" onclick="delChannel('${c.id}')">删</button></div>`).join('') : '暂无频道';
+  const pc = document.getElementById('pChannel');
+  if(pc) pc.innerHTML = list.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+}
+async function loadCount(){
+  const c = await api('/api/subscribe');
+  document.getElementById('subCount').textContent = c.count ?? '-';
+  document.getElementById('adminCount').textContent = c.count ?? '-';
+  const warn = document.getElementById('adminWarn');
+  if(c.count > 90000){ warn.classList.remove('hidden'); warn.textContent = '订阅者已超 9 万，接近 KV 单值 25MB 上限，建议分片/外置数据库'; }
+  else warn.classList.add('hidden');
+}
+
+async function doSubscribe(){
+  const botUrl = document.getElementById('botUrl').value.trim();
+  const sources = [...document.querySelectorAll('#srcList input:checked')].map(i=>i.value);
+  const channels = [...document.querySelectorAll('#chanList input:checked')].map(i=>i.value);
+  const keywords = document.getElementById('keywords').value.split(',').map(k=>k.trim()).filter(Boolean).slice(0,10);
+  const r = await api('/api/subscribe', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({botUrl, sources, channels, keywords})});
+  if(r.ok){ show('subMsg', true, '订阅成功！新内容会推到你的机器人'); if(r.warn) show('subMsg', true, '订阅成功！但'+r.warn, true); loadCount(); }
+  else show('subMsg', false, r.error || '订阅失败');
+}
+
+async function addSource(){
+  const token = document.getElementById('token').value.trim();
+  const name = document.getElementById('srcName').value.trim();
+  const url = document.getElementById('srcUrl').value.trim();
+  const category = document.getElementById('srcCat').value.trim();
+  const r = await api('/api/sources?token='+encodeURIComponent(token), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, url, category})});
+  if(r.ok){ show('srcMsg', true, '源已添加'); document.getElementById('srcName').value=''; document.getElementById('srcUrl').value=''; document.getElementById('srcCat').value=''; loadSources(); }
+  else show('srcMsg', false, r.error || '添加失败');
+}
+
+async function addChannel(){
+  const token = document.getElementById('token').value.trim();
+  const name = document.getElementById('chName').value.trim();
+  const category = document.getElementById('chCat').value.trim();
+  const content = document.getElementById('chContent').value;
+  const mode = document.getElementById('chMode').value;
+  const body = { token, name, category, content };
+  if(mode!=='none'){
+    const hour=+document.getElementById('chHour').value, minute=+document.getElementById('chMin').value;
+    if(mode==='daily') body.schedule={type:'daily',hour,minute};
+    if(mode==='weekly') body.schedule={type:'weekly',hour,minute,dow:+document.getElementById('chDow').value};
+    if(mode==='monthly') body.schedule={type:'monthly',hour,minute,dom:+document.getElementById('chDom').value};
+    if(mode==='yearly') body.schedule={type:'yearly',hour,minute,month:+document.getElementById('chMonth').value,date:+document.getElementById('chDate').value};
+  }
+  const r = await api('/api/channels?token='+encodeURIComponent(token), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  if(r.ok){ show('chMsg', true, '频道已添加'); document.getElementById('chName').value=''; document.getElementById('chCat').value=''; document.getElementById('chContent').value=''; loadChannels(); }
+  else show('chMsg', false, r.error || '添加失败');
+}
+async function delChannel(id){
+  const token = document.getElementById('token').value.trim();
+  const r = await api('/api/channels?token='+encodeURIComponent(token)+'&id='+encodeURIComponent(id), {method:'DELETE'});
+  if(r.ok){ show('chMsg', true, '已删除'); loadChannels(); } else show('chMsg', false, r.error || '删除失败');
+}
+
+async function loadSubs(){
+  const token = document.getElementById('token').value.trim();
+  const box = document.getElementById('subList');
+  if(!token){ box.innerHTML = '<span class="hint">请先在上方填写管理员 Token</span>'; return; }
+  const r = await api('/api/subs?token='+encodeURIComponent(token));
+  if(r.error){ box.innerHTML = '<span class="hint">'+r.error+'</span>'; return; }
+  if(!r.subs || !r.subs.length){ box.innerHTML = '暂无订阅'; return; }
+  box.innerHTML = r.subs.map(s=>`<div class="src" style="align-items:flex-start">
+    <div style="flex:1">
+      <div>${s.platform} · ${s.bot}</div>
+      <div class="hint">源 ${s.sources} · 频道 ${s.channels}${s.keywords&&s.keywords.length?(' · 词:'+s.keywords.join('/')):''}</div>
+    </div>
+    <button class="ghost" onclick="delSub('${s.id}')">删除</button>
+  </div>`).join('');
+}
+async function delSub(id){
+  const token = document.getElementById('token').value.trim();
+  const r = await api('/api/subs?token='+encodeURIComponent(token)+'&id='+encodeURIComponent(id), {method:'DELETE'});
+  if(r.ok){ loadSubs(); loadCount(); } else alert(r.error || '删除失败');
+}
+
+document.getElementById('chMode').addEventListener('change', e=>{
+  const m=e.target.value; const box=document.getElementById('chSchedBox');
+  box.classList.toggle('hidden', m==='none');
+  document.getElementById('chDowBox').style.display = m==='weekly'?'flex':'none';
+  document.getElementById('chDomBox').style.display = m==='monthly'?'flex':'none';
+  document.getElementById('chYmdBox').style.display = m==='yearly'?'flex':'none';
+});
+document.getElementById('pMode').addEventListener('change', e=>{
+  const m=e.target.value; const box=document.getElementById('schedBox');
+  box.classList.toggle('hidden', m==='now');
+  document.getElementById('dowBox').style.display = m==='weekly'?'flex':'none';
+  document.getElementById('domBox').style.display = m==='monthly'?'flex':'none';
+  document.getElementById('ymdBox').style.display = m==='yearly'?'flex':'none';
+});
+document.getElementById('pTarget').addEventListener('change', e=>{
+  document.getElementById('pChannel').classList.toggle('hidden', e.target.value!=='channel');
+});
+
+async function doPush(){
+  const token = document.getElementById('token').value.trim();
+  const mode = document.getElementById('pMode').value;
+  const tgt = document.getElementById('pTarget').value;
+  const body = { token, title:document.getElementById('pTitle').value.trim(), content:document.getElementById('pContent').value, url:document.getElementById('pUrl').value.trim(), target:'all' };
+  if(tgt==='channel') body.channelId = document.getElementById('pChannel').value;
+  if(mode!=='now'){
+    const hour=+document.getElementById('pHour').value, minute=+document.getElementById('pMin').value;
+    if(mode==='daily') body.schedule={type:'daily',hour,minute};
+    if(mode==='weekly') body.schedule={type:'weekly',hour,minute,dow:+document.getElementById('pDow').value};
+    if(mode==='monthly') body.schedule={type:'monthly',hour,minute,dom:+document.getElementById('pDom').value};
+    if(mode==='yearly') body.schedule={type:'yearly',hour,minute,month:+document.getElementById('pMonth').value,date:+document.getElementById('pDate').value};
+  }
+  const r = await api('/api/push', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  if(r.ok) show('pushMsg', true, mode==='now'? `已发送：成功 ${r.sent} / 失败 ${r.failed}` : '定时群发已创建');
+  else show('pushMsg', false, r.error || '发送失败');
+}
+
+// 退订 / 小组件模式
+if(params.get('unsub')){
+  document.getElementById('tabs').classList.add('hidden');
+  document.getElementById('pSub').classList.add('hidden');
+  document.getElementById('pAdmin').classList.add('hidden');
+  document.getElementById('pUnsub').classList.remove('hidden');
+  document.getElementById('unsubBtn').onclick = async () => {
+    const r = await api(`/api/subscribe?id=${encodeURIComponent(params.get('unsub'))}&token=${encodeURIComponent(params.get('token')||'')}`);
+    if(r.ok) show('unsubMsg', true, '已退订'); else show('unsubMsg', false, r.error || '退订失败');
+  };
+} else if(params.get('widget')){
+  document.getElementById('tabs').classList.add('hidden');
+  document.getElementById('pAdmin').classList.add('hidden');
+}
+
+loadSources(); loadChannels(); loadCount();
+</script>
+</body>
+</html>

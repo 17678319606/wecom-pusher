@@ -1,0 +1,14 @@
+# 运行时
+.DS_Store
+*.log
+
+# 本地笔记 / 临时
+.idea/
+.vscode/
+
+# 部署相关（不进入仓库，仅本地参考）
+deploy.local.*
+
+# 敏感 / 部署元数据（不进公开仓库）
+.env
+.edgeone/

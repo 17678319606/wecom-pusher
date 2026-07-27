@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>收藏推送 · 推给自己</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --pri:#07c160; --txt:#1f2329; --mut:#8a8f99; --bd:#e5e6eb; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; background:var(--bg); color:var(--txt); }
+  .wrap { max-width:520px; margin:0 auto; padding:16px; }
+  h1 { font-size:20px; margin:8px 0 4px; }
+  .sub { color:var(--mut); font-size:13px; margin-bottom:16px; line-height:1.6; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:16px; }
+  label { display:block; font-size:13px; color:var(--mut); margin:12px 0 6px; }
+  input, textarea { width:100%; padding:10px; border:1px solid var(--bd); border-radius:8px; font-size:14px; background:#fff; }
+  textarea { min-height:80px; resize:vertical; }
+  button { width:100%; padding:12px; border:0; border-radius:10px; background:var(--pri); color:#fff; font-size:15px; font-weight:600; margin-top:14px; cursor:pointer; }
+  .msg { font-size:13px; margin-top:10px; padding:8px 10px; border-radius:8px; display:none; }
+  .msg.ok { background:#e8f8ee; color:#07c160; display:block; }
+  .msg.err { background:#fdecec; color:#e54545; display:block; }
+  .hint { font-size:12px; color:var(--mut); margin-top:6px; line-height:1.5; }
+  .quick { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .quick button { width:auto; padding:6px 12px; font-size:12px; margin:0; background:#eef0f3; color:var(--txt); }
+  .foot { max-width:520px; margin:24px auto 18px; padding:0 16px; text-align:center; font-size:12px; color:var(--mut); line-height:1.9; }
+  .foot a { color:var(--mut); text-decoration:none; }
+  .foot a:hover { color:var(--pri); }
+  .foot .sep { margin:0 6px; color:#d0d3d9; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>收藏推送 · 推给自己</h1>
+  <div class="sub">把看到的好内容一键推到自己的企业微信 / 飞书 / 钉钉。本工具不存储任何数据，纯前端 + 即时推送。</div>
+
+  <div class="card">
+    <label>你的机器人 Webhook 地址</label>
+    <input id="botUrl" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxx" />
+    <div class="hint">在企业微信/飞书/钉钉群 → 添加群机器人 → 复制 Webhook 地址</div>
+
+    <label>标题</label>
+    <input id="title" placeholder="一句话概括你要收藏的内容" />
+
+    <label>原文链接（可选）</label>
+    <input id="url" placeholder="https://..." />
+
+    <label>备注 / 正文（可选）</label>
+    <textarea id="content" placeholder="想给自己留的话"></textarea>
+
+    <div class="quick">
+      <button onclick="fill('稍后阅读', '')">稍后阅读</button>
+      <button onclick="fill('值得一试', '')">值得一试</button>
+      <button onclick="fill('灵感收藏', '')">灵感收藏</button>
+    </div>
+
+    <button onclick="send()">立即推给自己</button>
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+
+<footer class="foot">
+  <div>
+    <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">豫ICP备2024069686号</a>
+    <span class="sep">·</span>
+    <a href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=41132402411815" target="_blank" rel="noopener">豫公网安备41132402411815号</a>
+  </div>
+  <div style="margin-top:4px">
+    <a href="https://jinbufenzi.com/505.html" target="_blank" rel="noopener">投放广告联系管理员</a>
+  </div>
+</footer>
+
+<script>
+const api = (p, opt) => fetch(p, opt).then(r => r.json().catch(()=>({})));
+function show(ok, text){ const e=document.getElementById('msg'); e.className='msg '+(ok?'ok':'err'); e.textContent=text; }
+function fill(t, c){ document.getElementById('title').value = t; document.getElementById('content').value = c; }
+async function send(){
+  const botUrl = document.getElementById('botUrl').value.trim();
+  const title = document.getElementById('title').value.trim();
+  const url = document.getElementById('url').value.trim();
+  const content = document.getElementById('content').value;
+  if(!botUrl || !title){ show(false, '请先填机器人地址和标题'); return; }
+  const r = await api('/api/bookmark', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({botUrl, title, url, content})});
+  if(r.ok) show(true, '已推送到你的机器人 ✓');
+  else show(false, r.error || '推送失败');
+}
+</script>
+</body>
+</html>
