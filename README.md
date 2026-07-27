@@ -17,17 +17,28 @@
 - 订阅 / 收藏接口带 **每 IP 限流**（订阅 30 次/时、收藏 50 次/时）
 - 订阅人数接近上限时返回提醒
 - 可嵌入第三方网站（`?widget=1` 精简视图 + CORS）
-- **收藏推送小工具**（`index_bookmark.html`）：手机端手填机器人 + 标题/链接立即推给自己（不存储）；PC 端提供「书签栏小工具（bookmarklet）」——拖到书签栏后，在任意网页一点即抓取标题+链接（+选中文字）推到机器人。支持「记住机器人」（本机 localStorage），书签打开后自动推送并自动关页。手机 + PC 两端覆盖。
-- **合规底部**：每个网页底部展示 ICP 备案（豫ICP备2024069686号，跳工信部备案系统）与公网安备（豫公网安备41132402411815号，跳公安备案平台），并提供「投放广告联系管理员」链接
+- **收藏推送小工具**（线上路径 `/bookmark`，原 `index_bookmark.html` 仍兼容）：手机端手填机器人 + 标题/链接立即推给自己（不存储）；PC 端提供「书签栏小工具（bookmarklet）」——拖到书签栏后，在任意网页一点即抓取标题+链接（+选中文字）推到机器人。支持「记住机器人」（本机 localStorage），书签打开后自动推送并自动关页。
+- **移动端一键（Android PWA）**：站点可「添加到主屏幕」安装为应用，之后用系统分享任意网页 → 选本应用 → 自动打开 `/bookmark?title&content&url` 预填并推送（替代 PC bookmarklet 的移动端一键）。iOS Safari 暂不支持 share_target，仍用手动填写。
+- **合规底部**：每个网页底部展示 ICP 备案（豫ICP备2024069686号，跳工信部备案系统）与公网安备（豫公网安备41132402411815号，跳公安备案平台），并提供「投放广告联系管理员」链接。
+- **底部广告位 + 管理**：页面底部预留广告位，管理员在「管理」页可直接粘贴 JS/HTML 广告片段并一键启用/关闭（存 KV `ad_config`，页面客户端拉取渲染，支持广告 `<script>` 自动执行）。
+- **SEO 友好**：每页注入 description/keywords/OpenGraph/canonical/JSON-LD 结构化数据；提供 `/robots.txt` 与 `/sitemap.xml`，利于搜索引擎收录。
 
 ## 目录结构
 ```
 wecom-pusher/
 ├── edgeone.json              # schedules：每 5 分钟触发 /api/cron/tick
-├── index.html                # 前端（订阅页 + 管理页 + 退订 + widget 模式）
-├── index_bookmark.html       # 收藏推送小工具（推给自己，无存储）
+├── index.html                # 前端源（订阅页 + 管理页 + 退订 + widget 模式）
+├── index_bookmark.html       # 收藏推送小工具源（推给自己，无存储）
+├── gen_pages.js              # 把上面的两个 HTML 内嵌成 functions 里的页面函数（源 HTML 为单一真源）
 └── functions/
     ├── _lib.js               # 共享工具：KV/多平台推送/RSS/调度/CORS/哈希/限流/脱敏
+    ├── index.js              # 页面：/（由 index.html 生成）
+    ├── bookmark.js           # 页面：/bookmark（由 index_bookmark.html 生成）
+    ├── index_bookmark.html.js# 页面：/index_bookmark.html（旧链接兼容，由 index_bookmark.html 生成）
+    ├── robots.txt.js         # /robots.txt
+    ├── sitemap.xml.js        # /sitemap.xml
+    ├── manifest.webmanifest.js # /manifest.webmanifest（PWA + share_target）
+    ├── sw.js.js              # /sw.js（最小 Service Worker，用于可安装性）
     └── api/
         ├── subscribe.js      # 公开订阅（含关键词）/ 退订 / 人数
         ├── sources.js        # RSS 源列表(含分类) / 增删（admin）
@@ -35,6 +46,7 @@ wecom-pusher/
         ├── push.js           # 发布到频道 / 群发 / 定时群发（admin）
         ├── subs.js           # 订阅列表(脱敏) / 删除（admin）
         ├── bookmark.js       # 收藏推送（即时推给自己，无存储）
+        ├── ad.js             # 底部广告配置 GET(公开)/ POST(admin)
         └── cron/tick.js      # 定时任务执行器（RSS静默/早报 + 频道 + 群发）
 ```
 
@@ -67,7 +79,7 @@ EO KV 单命名空间限额：**1 万写 / 10 万读 每天、1GB 存储、单�
 3. 新 RSS 条目会推到你的机器人（夜间静默、早 8 点合并早报）。也可在「管理」里发立即推送或定时推送。
 4. 退订：把订阅时返回的 `id`+`token` 拼成 `https://你的域名/?unsub=ID&token=TOKEN` 访问即可。
 5. 管理端「订阅管理」可查看所有订阅（机器人地址脱敏）+ 删除指定订阅。
-6. 收藏推送：打开 `index_bookmark.html`，填自己机器人 + 标题/链接，立即推给自己。
+6. 收藏推送：打开 `/bookmark`（旧地址 `index_bookmark.html` 仍可用），填自己机器人 + 标题/链接，立即推给自己。
 
 ## 嵌入其他网站（小组件）
 本应用已开启 CORS，订阅接口可被跨域调用。第三方站点用 iframe 嵌入精简订阅页：
@@ -82,6 +94,19 @@ EO KV 单命名空间限额：**1 万写 / 10 万读 每天、1GB 存储、单�
 - 其他网站用户在此填入**他们自己的**机器人地址即可订阅，数据存入你的 KV。
 
 > ⚠️ 公开订阅有滥用风险（垃圾 bot 地址刷库、冒用他人机器人）。当前已做：平台 URL 格式校验 + 每 IP 限流（订阅 30/时、收藏 50/时）。若要正式对外开放嵌入，建议再加：可选 **CAPTCHA**、以及源维度的订阅统计/封禁。
+
+## SEO 与移动端 PWA
+
+### 搜索引擎收录
+- 两个页面均已注入 `description` / `keywords` / OpenGraph / `canonical` / JSON-LD（`WebApplication`）结构化数据；正文为服务端直出（非 JS 渲染），爬虫可直接读取。
+- `/robots.txt` 允许全站抓取并指向 `/sitemap.xml`；`/sitemap.xml` 列出 `/` 与 `/bookmark`。
+- canonical / sitemap 使用生产域名 `https://sub.jinbufenzi.com/`，请确认该自定义域名已在 EO 控制台**绑定到本项目并已生效**（证书已生效即可）。
+
+### 移动端一键（Android）
+- 浏览器打开站点 → 菜单「添加到主屏幕」安装为 PWA。
+- 之后在任意网页用系统「分享」→ 选择「推送订阅」→ 自动打开 `/bookmark?title&content&url` 并（若已记住机器人）自动推送、自动关页。
+- 原理：`/manifest.webmanifest` 的 `share_target` + 最小 `/sw.js` 满足 PWA 可安装性；书签页本就支持 URL 参数预填与自动推送。
+- ⚠️ iOS Safari 不支持 `share_target`，移动端 iOS 仍用手动填写（或 PC bookmarklet）。这是平台限制，EO 侧无法绕过。
 
 ## 赞赏支持
 如果这个项目对你有帮助，欢迎扫码赞赏支持开发者继续维护：

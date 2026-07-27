@@ -12,8 +12,3 @@ deploy.local.*
 # 敏感 / 部署元数据（不进公开仓库）
 .env
 .edgeone/
-
-# 由 index.html / index_bookmark.html 经 gen_pages.js 生成（非手写，避免与源 HTML 漂移）
-functions/index.js
-functions/bookmark.js
-functions/index_bookmark.html.js

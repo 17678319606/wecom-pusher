@@ -4,6 +4,17 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>企微推送订阅</title>
+<meta name="description" content="推送订阅：填自己的企业微信 / 飞书 / 钉钉群机器人 Webhook，免费订阅 RSS 资讯源与自定义内容频道，支持关键词过滤、夜间静默与早报聚合。另有收藏推送小工具，一键把网页收藏推给自己。" />
+<meta name="keywords" content="推送订阅,企微推送,飞书机器人,钉钉机器人,RSS订阅,Webhook推送,收藏推送,资讯聚合" />
+<meta name="robots" content="index,follow" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="推送订阅 · 企微/飞书/钉钉 RSS 与自定义内容推送" />
+<meta property="og:description" content="填自己的群机器人 Webhook，免费订阅 RSS 与自定义内容频道，支持关键词过滤、夜间静默与早报聚合。" />
+<meta property="og:url" content="https://sub.jinbufenzi.com/" />
+<meta property="og:site_name" content="推送订阅" />
+<meta name="twitter:card" content="summary" />
+<link rel="canonical" href="https://sub.jinbufenzi.com/" />
+<link rel="manifest" href="/manifest.webmanifest" />
 <style>
   :root { --bg:#f5f6f8; --card:#fff; --pri:#07c160; --txt:#1f2329; --mut:#8a8f99; --bd:#e5e6eb; }
   * { box-sizing:border-box; }
@@ -38,7 +49,23 @@
   .foot a { color:var(--mut); text-decoration:none; }
   .foot a:hover { color:var(--pri); }
   .foot .sep { margin:0 6px; color:#d0d3d9; }
+  .ad-slot { max-width:560px; margin:0 auto 14px; padding:0 16px; }
+  .ad-slot:empty { display:none; }
+  .ad-slot > * { display:block; margin:0 auto; }
 </style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "推送订阅",
+  "description": "填自己的企业微信/飞书/钉钉群机器人 Webhook，订阅 RSS 与自定义内容频道，支持关键词过滤、夜间静默与早报聚合；含收藏推送小工具。",
+  "url": "https://sub.jinbufenzi.com/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Any",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CNY" },
+  "inLanguage": "zh-CN"
+}
+</script>
 </head>
 <body>
 <div class="wrap">
@@ -171,11 +198,21 @@
     </div>
 
     <div class="card">
+      <label>底部广告设置（JS / HTML 片段）</label>
+      <textarea id="adHtml" placeholder="粘贴广告代码，如 <a href='https://...'><img src='...' /></a> 或 <script src='...'></script>；留空并取消启用即关闭"></textarea>
+      <label style="margin-top:8px"><input type="checkbox" id="adEnabled" /> 启用页面底部广告</label>
+      <button onclick="saveAd()">保存广告设置</button>
+      <div class="msg" id="adMsg"></div>
+    </div>
+
+    <div class="card">
       <div class="cap">订阅人数：<span id="adminCount">-</span></div>
       <div class="msg warn hidden" id="adminWarn"></div>
     </div>
   </div>
 </div>
+
+<div id="ad-slot" class="ad-slot"></div>
 
 <footer class="foot">
   <div>
@@ -286,6 +323,14 @@ async function delSub(id){
   if(r.ok){ loadSubs(); loadCount(); } else alert(r.error || '删除失败');
 }
 
+async function saveAd(){
+  const token = document.getElementById('token').value.trim();
+  const html = document.getElementById('adHtml').value;
+  const enabled = document.getElementById('adEnabled').checked;
+  const r = await api('/api/ad?token='+encodeURIComponent(token), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({html, enabled})});
+  if(r.ok) show('adMsg', true, '广告设置已保存'); else show('adMsg', false, r.error || '保存失败');
+}
+
 document.getElementById('chMode').addEventListener('change', e=>{
   const m=e.target.value; const box=document.getElementById('chSchedBox');
   box.classList.toggle('hidden', m==='none');
@@ -336,6 +381,23 @@ if(params.get('unsub')){
   document.getElementById('tabs').classList.add('hidden');
   document.getElementById('pAdmin').classList.add('hidden');
 }
+
+// 渲染底部广告位（管理员后台设置；重新执行注入的 <script> 以支持广告 JS）
+function renderAd(html){
+  const slot = document.getElementById('ad-slot');
+  if(!slot) return;
+  slot.innerHTML = html;
+  slot.querySelectorAll('script').forEach(s => {
+    const n = document.createElement('script');
+    if (s.src) n.src = s.src; else n.textContent = s.textContent;
+    s.replaceWith(n);
+  });
+}
+(async () => {
+  try { const ad = await api('/api/ad'); if (ad && ad.enabled && ad.html) renderAd(ad.html); } catch(e){}
+})();
+// PWA 注册（移动端 Android 可安装，系统分享一键收藏）
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(()=>{})); }
 
 loadSources(); loadChannels(); loadCount();
 </script>

@@ -4,6 +4,14 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>收藏推送 · 推给自己</title>
+<meta name="description" content="收藏推送小工具：手机手动填写机器人+标题/链接立即推给自己；PC 端把书签小工具拖到书签栏，在任意网页一点即推；Android 可安装为 PWA 通过系统分享一键收藏。" />
+<meta name="robots" content="index,follow" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="收藏推送 · 推给自己" />
+<meta property="og:description" content="手机/PC 一键把网页收藏推到自己的企微/飞书/钉钉机器人。" />
+<meta property="og:url" content="https://sub.jinbufenzi.com/bookmark" />
+<link rel="canonical" href="https://sub.jinbufenzi.com/bookmark" />
+<link rel="manifest" href="/manifest.webmanifest" />
 <style>
   :root { --bg:#f5f6f8; --card:#fff; --pri:#07c160; --txt:#1f2329; --mut:#8a8f99; --bd:#e5e6eb; }
   * { box-sizing:border-box; }
@@ -28,6 +36,9 @@
   .bm { display:block; padding:12px; background:#eef0f3; border:1px dashed var(--pri); border-radius:8px; color:var(--pri); font-weight:600; text-align:center; text-decoration:none; cursor:grab; margin-top:8px; }
   .bm:active { cursor:grabbing; }
   code { background:#f0f1f3; padding:2px 6px; border-radius:4px; font-size:12px; }
+  .ad-slot { max-width:520px; margin:0 auto 14px; padding:0 16px; }
+  .ad-slot:empty { display:none; }
+  .ad-slot > * { display:block; margin:0 auto; }
 </style>
 </head>
 <body>
@@ -71,9 +82,11 @@
     <h3>PC 浏览器收藏小工具（书签栏）</h3>
     <div class="hint">把下面的「收藏推送」拖到浏览器书签栏。之后在任意网页点击它，会自动抓取该页标题+链接（+选中文字）并推到你的机器人（需先在上方「记住我的机器人」）。</div>
     <a class="bm" id="bookmarklet" href="#">收藏推送</a>
-    <div class="hint">拖不动？点右键「添加到收藏夹 / 书签」也行。手机端不支持书签小工具，用上方手动填写即可。</div>
+    <div class="hint">拖不动？点右键「添加到收藏夹 / 书签」也行。手机端：Android 可「添加到主屏幕」安装本应用，之后用系统分享任意网页即可一键收藏；iOS 请用上方手动填写。</div>
   </div>
 </div>
+
+<div id="ad-slot" class="ad-slot"></div>
 
 <script>
 const api = (p, opt) => fetch(p, opt).then(r => r.json().catch(()=>({})));
@@ -134,6 +147,23 @@ async function send(autoClose){
 if (savedBot && pUrl) {
   send(true).then(ok => { if(ok) setTimeout(() => window.close(), 1500); });
 }
+
+// 渲染底部广告位
+function renderAd(html){
+  const slot = document.getElementById('ad-slot');
+  if(!slot) return;
+  slot.innerHTML = html;
+  slot.querySelectorAll('script').forEach(s => {
+    const n = document.createElement('script');
+    if (s.src) n.src = s.src; else n.textContent = s.textContent;
+    s.replaceWith(n);
+  });
+}
+(async () => {
+  try { const ad = await api('/api/ad'); if (ad && ad.enabled && ad.html) renderAd(ad.html); } catch(e){}
+})();
+// PWA 注册（Android 可安装为应用，系统分享一键收藏）
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(()=>{})); }
 </script>
 </body>
 </html>
