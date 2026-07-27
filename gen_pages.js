@@ -4,6 +4,14 @@
 const fs = require('fs');
 const path = require('path');
 
+// 页面响应头：5 分钟边缘缓存（HTML 外壳静态，广告由前端 /api/ad 动态拉取）+ 安全头
+const PAGE_HEAD = `{
+  'Content-Type': 'text/html; charset=utf-8',
+  'Cache-Control': 'public, max-age=300, s-maxage=300',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+}`;
+
 const root = __dirname;
 const home = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const bm = fs.readFileSync(path.join(root, 'index_bookmark.html'), 'utf8');
@@ -12,9 +20,7 @@ const homeJs = `// 由 index.html 生成（gen_pages.js）。以函数返回静�
 const HTML = ${JSON.stringify(home)};
 
 export async function onRequestGet() {
-  return new Response(HTML, {
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
-  });
+  return new Response(HTML, { headers: ${PAGE_HEAD} });
 }
 `;
 fs.writeFileSync(path.join(root, 'functions', 'index.js'), homeJs);
@@ -23,9 +29,7 @@ const bmJs = `// 由 index_bookmark.html 生成（gen_pages.js）。收藏推送
 const HTML = ${JSON.stringify(bm)};
 
 export async function onRequestGet() {
-  return new Response(HTML, {
-    headers: { 'Content-Type': 'text/html; charset=utf-8' },
-  });
+  return new Response(HTML, { headers: ${PAGE_HEAD} });
 }
 `;
 fs.writeFileSync(path.join(root, 'functions', 'bookmark.js'), bmJs);

@@ -7,13 +7,22 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type,x-admin-token',
 };
 
+// 安全响应头（防御纵深）。
+// 注意： deliberately 不设置 X-Frame-Options / CSP frame-ancestors，
+// 以保留首页 ?widget=1 被其它网站 iframe 嵌入订阅的能力。
+export const SEC_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()',
+};
+
 export const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json', ...CORS },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...SEC_HEADERS, ...CORS },
   });
 
-export const preflight = () => new Response(null, { status: 204, headers: CORS });
+export const preflight = () => new Response(null, { status: 204, headers: { ...SEC_HEADERS, ...CORS } });
 
 export async function readList(key, fallback = []) {
   const v = await KV.get(key);

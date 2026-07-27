@@ -5,6 +5,10 @@ export async function onRequestGet() {
 self.addEventListener('activate', function(e){ e.waitUntil(self.clients.claim()); });
 `;
   return new Response(body, {
-    headers: { 'Content-Type': 'application/javascript' },
+    headers: {
+      'Content-Type': 'application/javascript',
+      'Cache-Control': 'no-cache',
+      'X-Content-Type-Options': 'nosniff',
+    },
   });
 }

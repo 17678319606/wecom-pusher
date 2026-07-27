@@ -10,6 +10,10 @@ const MANIFEST = {
   background_color: '#f5f6f8',
   theme_color: '#07c160',
   lang: 'zh-CN',
+  icons: [
+    { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
+  ],
+  categories: ['utilities', 'productivity'],
   share_target: {
     action: '/bookmark',
     method: 'GET',
@@ -19,6 +23,10 @@ const MANIFEST = {
 
 export async function onRequestGet() {
   return new Response(JSON.stringify(MANIFEST), {
-    headers: { 'Content-Type': 'application/manifest+json' },
+    headers: {
+      'Content-Type': 'application/manifest+json',
+      'Cache-Control': 'public, max-age=3600',
+      'X-Content-Type-Options': 'nosniff',
+    },
   });
 }
