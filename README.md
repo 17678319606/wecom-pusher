@@ -21,7 +21,9 @@
 - **移动端一键（Android PWA）**：站点可「添加到主屏幕」安装为应用，之后用系统分享任意网页 → 选本应用 → 自动打开 `/bookmark?title&content&url` 预填并推送（替代 PC bookmarklet 的移动端一键）。iOS Safari 暂不支持 share_target，仍用手动填写。
 - **合规底部**：每个网页底部展示 ICP 备案（豫ICP备2024069686号，跳工信部备案系统）与公网安备（豫公网安备41132402411815号，跳公安备案平台），并提供「投放广告联系管理员」链接。
 - **底部广告位 + 管理**：页面底部预留广告位，管理员在「管理」页可直接粘贴 JS/HTML 广告片段并一键启用/关闭（存 KV `ad_config`，页面客户端拉取渲染，支持广告 `<script>` 自动执行）。
-- **SEO 友好**：每页注入 description/keywords/OpenGraph/canonical/JSON-LD 结构化数据；提供 `/robots.txt` 与 `/sitemap.xml`，利于搜索引擎收录。
+- **SEO 友好**：每页注入 description/keywords/OpenGraph/canonical/JSON-LD 结构化数据；提供 `/robots.txt` 与 `/sitemap.xml`（含 `lastmod`），利于搜索引擎收录。
+- **响应头加固**：全站返回 `X-Content-Type-Options: nosniff` / `Referrer-Policy` / `Permissions-Policy`；静态页与 `robots`/`sitemap`/`manifest` 走边缘缓存（`Cache-Control`），`sw.js` 设 `no-cache`，API 设 `no-store`。**未启用 `X-Frame-Options`/`CSP frame-ancestors`**，以保留首页 `?widget=1` 被第三方网站 iframe 嵌入的能力。
+- **PWA 图标**：`/icon.svg` 被 manifest 引用，让 Android「添加到主屏幕」安装横幅正常出现。
 
 ## 目录结构
 ```
@@ -37,7 +39,8 @@ wecom-pusher/
     ├── index_bookmark.html.js# 页面：/index_bookmark.html（旧链接兼容，由 index_bookmark.html 生成）
     ├── robots.txt.js         # /robots.txt
     ├── sitemap.xml.js        # /sitemap.xml
-    ├── manifest.webmanifest.js # /manifest.webmanifest（PWA + share_target）
+    ├── manifest.webmanifest.js # /manifest.webmanifest（PWA + share_target + icons）
+    ├── icon.svg.js          # /icon.svg（PWA 安装图标，manifest 引用）
     ├── sw.js.js              # /sw.js（最小 Service Worker，用于可安装性）
     └── api/
         ├── subscribe.js      # 公开订阅（含关键词）/ 退订 / 人数
@@ -66,7 +69,7 @@ EO KV 单命名空间限额：**1 万写 / 10 万读 每天、1GB 存储、单�
 
 ## 部署步骤
 1. **开通 KV**：EdgeOne 控制台 → KV 存储 → 申请开通 → 创建命名空间。把该命名空间绑定到本项目，**绑定变量名必须设为 `KV`**（代码里用的是全局 `KV`）。
-2. **设置环境变量**：项目 → 环境变量，新增 `ADMIN_TOKEN`（随便一段高强度字符串，管理端要用）。
+2. **设置环境变量**：项目 → 环境变量，新增 `ADMIN_TOKEN`（随便一段高强度字符串，管理端要用）。**不要把真实值写进仓库里的 `.env`**；本仓库只提供 `.env.example` 作模板，`ADMIN_TOKEN` 一律在 EdgeOne 控制台配置（Functions 通过 `context.env` 读取，不依赖文件）。
 3. **部署**（任选其一）：
    - **CLI**：`npm install -g edgeone` → 在项目目录 `edgeone pages link` → `edgeone pages deploy`
    - **Git 自动构建**：把本目录推到仓库，在 EO Pages 关联仓库，push 即部署
