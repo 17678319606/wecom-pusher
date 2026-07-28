@@ -17,6 +17,8 @@ globalThis.KV = new MockKV();
 
 // 动态导入（保证 KV 桩已就位）
 const lib = await import('../functions/_lib.js');
+// 导入 stats 模块（暴露埋点漏斗端点，验证 track→stats 联通）
+const statsMod = await import('../functions/api/stats.js');
 
 // —— 纯函数 ——
 test('simpleHash: 稳定且为十六进制', () => {
@@ -158,6 +160,27 @@ test('bumpTrack: 按事件累加；未知事件被忽略不报错', async () => 
   await lib.bumpTrack('weird'); // 不应写入 weird 键
   cur = JSON.parse(await globalThis.KV.get('track:' + d));
   assert.equal(cur.weird, undefined);
+});
+
+test('stats: track→stats 联通，漏斗反映埋点（消头号盲区）', async () => {
+  const d = lib.shDate(Date.now());
+  // 隔离：重置今日 track，避免被其它用例污染
+  await globalThis.KV.put('track:' + d, JSON.stringify({ pv: 0, uv: 0, widget: 0, sub: 0, unsub: 0 }));
+  await lib.bumpTrack('pv');
+  await lib.bumpTrack('uv');
+  await lib.bumpTrack('sub');
+  const data = await (await statsMod.onRequestGet()).json();
+  // 当日明细
+  assert.equal(data.trackToday.pv, 1);
+  assert.equal(data.trackToday.uv, 1);
+  assert.equal(data.trackToday.sub, 1);
+  // 近30日聚合（含今日，其余日为 fallback 0）
+  assert.equal(data.track30.pv, 1);
+  assert.equal(data.track30.uv, 1);
+  assert.equal(data.track30.sub, 1);
+  assert.equal(data.track30.unsub, 0);
+  // 既有概览字段不受影响
+  assert.ok('streak' in data && 'mstat' in data && 'sources' in data);
 });
 
 test('rateLimited: 达到上限后限流；不同 key 独立', async () => {

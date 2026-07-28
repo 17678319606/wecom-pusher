@@ -1,16 +1,41 @@
-import { json, preflight, readList } from '../_lib.js';
+import { json, preflight, readList, shDate } from '../_lib.js';
+
+const TRACK_FALLBACK = { pv: 0, uv: 0, widget: 0, sub: 0, unsub: 0 };
+
+// 近 N 日埋点漏斗聚合（并行读 KV，写频可控）。返回 {pv,uv,widget,sub,unsub} 累加值。
+async function sumTrack(days) {
+  const keys = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(Date.now() + 8 * 3600 * 1000 - i * 86400000).toISOString().slice(0, 10);
+    keys.push('track:' + d);
+  }
+  const vals = await Promise.all(keys.map((k) => readList(k, TRACK_FALLBACK)));
+  const agg = { ...TRACK_FALLBACK };
+  for (const t of vals) {
+    agg.pv += t.pv || 0;
+    agg.uv += t.uv || 0;
+    agg.widget += t.widget || 0;
+    agg.sub += t.sub || 0;
+    agg.unsub += t.unsub || 0;
+  }
+  return agg;
+}
 
 export async function onRequestOptions() {
   return preflight();
 }
 
-// 公开（虚荣指标，无敏感信息）：连续服务天数、当月聚合、源健康概览
+// 公开（虚荣指标，无敏感信息）：连续服务天数、当月聚合、源健康概览、埋点转化漏斗
 export async function onRequestGet() {
+  const today = shDate(Date.now());
   const streak = await readList('streak', { count: 0, lastDate: '' });
   const m = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 7); // YYYY-MM
   const mstat = await readList('mstat:' + m, { digest: 0, sched: 0, chan: 0, rss: 0, bookmark: 0 });
   const sources = await readList('sources', []);
   const suspect = sources.filter((s) => s.suspect).length;
+  // P1-A：接入 track 埋点漏斗（消头号盲区）—— 当日明细 + 近30日聚合
+  const trackToday = await readList('track:' + today, TRACK_FALLBACK);
+  const track30 = await sumTrack(30);
   return json({
     streak: streak.count || 0,
     lastDate: streak.lastDate || '',
@@ -18,5 +43,7 @@ export async function onRequestGet() {
     mstat,
     sources: sources.length,
     suspect,
+    trackToday,
+    track30,
   });
 }
