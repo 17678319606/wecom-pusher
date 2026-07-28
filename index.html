@@ -206,6 +206,31 @@
     </div>
 
     <div class="card">
+      <label>数据概览（留存度量）</label>
+      <div id="statBox" class="hint">点「刷新」查看连续服务天数与当月回顾</div>
+      <button class="ghost" style="width:auto;margin-top:8px" onclick="loadStats()">刷新</button>
+    </div>
+
+    <div class="card">
+      <label>源健康（失效自愈状态）</label>
+      <button class="ghost" style="width:auto;margin-top:4px" onclick="loadHealth()">刷新</button>
+      <div id="healthBox" class="hint" style="margin-top:10px">点「刷新」查看各 RSS 源抓取状态</div>
+    </div>
+
+    <div class="card">
+      <label>我的收藏（第二大脑）</label>
+      <button class="ghost" style="width:auto;margin-top:4px" onclick="loadBookmarks()">刷新</button>
+      <div id="bmTags" class="quick" style="display:none"></div>
+      <div id="bmList" class="hint" style="margin-top:10px">点「刷新」查看已收藏内容（按标签筛选）</div>
+    </div>
+
+    <div class="card">
+      <label>配置导出 / 备份</label>
+      <div class="hint">导出全部配置（源 / 频道 / 定时群发 / 广告）为 JSON，便于备份与迁移。</div>
+      <button class="ghost" style="width:auto;margin-top:8px" onclick="exportCfg()">导出配置 JSON</button>
+    </div>
+
+    <div class="card">
       <div class="cap">订阅人数：<span id="adminCount">-</span></div>
       <div class="msg warn hidden" id="adminWarn"></div>
     </div>
@@ -329,6 +354,63 @@ async function saveAd(){
   const enabled = document.getElementById('adEnabled').checked;
   const r = await api('/api/ad?token='+encodeURIComponent(token), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({html, enabled})});
   if(r.ok) show('adMsg', true, '广告设置已保存'); else show('adMsg', false, r.error || '保存失败');
+}
+
+const fmtDate = (ts) => ts ? new Date(ts + 8*3600*1000).toISOString().slice(0,16).replace('T',' ') : '-';
+async function loadStats(){
+  const r = await api('/api/stats');
+  const box = document.getElementById('statBox');
+  if(r.error){ box.textContent = '加载失败'; return; }
+  const m = r.mstat || {};
+  box.innerHTML =
+    `<div style="font-size:15px;margin-bottom:6px">🔥 连续服务 <b>${r.streak}</b> 天（自 ${r.lastDate||'-'}）</div>` +
+    `<div class="hint">本月（${r.month}）回顾：早报 ${m.digest||0} · 定时群发 ${m.sched||0} · 频道 ${m.chan||0} · RSS 即时 ${m.rss||0} · 收藏 ${m.bookmark||0}</div>` +
+    `<div class="hint" style="margin-top:4px">订阅源 ${r.sources} 个${r.suspect?` · <span style="color:#e54545">${r.suspect} 个疑似失效</span>`:''}</div>`;
+}
+async function loadHealth(){
+  const list = await api('/api/sources');
+  const box = document.getElementById('healthBox');
+  if(!list.length){ box.innerHTML = '暂无源'; return; }
+  box.innerHTML = list.map(s=>{
+    const st = s.suspect ? '<span style="color:#e54545">疑似失效(连败'+s.failCount+')</span>'
+      : (s.failCount>0 ? '<span style="color:#d48806">近期'+s.failCount+'次失败</span>' : '<span style="color:#07c160">正常</span>');
+    return `<div class="src"><div style="flex:1">${s.name}${s.category?` <span class="tag">${s.category}</span>`:''}<div class="hint">最后检查 ${fmtDate(s.lastCheck)}</div></div>${st}</div>`;
+  }).join('');
+}
+let bmCurTag = '';
+async function loadBookmarks(tag){
+  const token = document.getElementById('token').value.trim();
+  if(!token){ document.getElementById('bmList').innerHTML = '<span class="hint">请先在上方填写管理员 Token</span>'; return; }
+  bmCurTag = tag || '';
+  const r = await api('/api/bookmark?token='+encodeURIComponent(token)+(bmCurTag?('&tag='+encodeURIComponent(bmCurTag)):''));
+  if(r.error){ document.getElementById('bmList').innerHTML = '<span class="hint">'+r.error+'</span>'; return; }
+  const tagBox = document.getElementById('bmTags');
+  tagBox.style.display = r.tags && r.tags.length ? 'flex' : 'none';
+  tagBox.innerHTML = '<button onclick="loadBookmarks()">全部</button>' + (r.tags||[]).map(t=>`<button onclick="loadBookmarks('${t.replace(/'/g,"")}')">${t}</button>`).join('');
+  const list = document.getElementById('bmList');
+  if(!r.bookmarks || !r.bookmarks.length){ list.innerHTML = '暂无收藏'; return; }
+  list.innerHTML = r.bookmarks.map(b=>{
+    const tags = (b.tags||[]).map(t=>`<span class="tag">${t}</span>`).join(' ');
+    const link = b.url ? `<a href="${b.url}" target="_blank" rel="noopener" style="color:var(--pri)">原文</a>` : '';
+    return `<div class="src" style="align-items:flex-start"><div style="flex:1"><div style="font-weight:600">${b.title}</div>${b.content?`<div class="hint">${b.content.slice(0,60)}</div>`:''}${tags?`<div style="margin-top:4px">${tags}</div>`:''}<div class="hint">${fmtDate(b.ts)} ${link}</div></div><button class="ghost" onclick="delBm('${b.id}')">删</button></div>`;
+  }).join('');
+}
+async function delBm(id){
+  const token = document.getElementById('token').value.trim();
+  const r = await api('/api/bookmark?token='+encodeURIComponent(token)+'&id='+encodeURIComponent(id), {method:'DELETE'});
+  if(r.ok) loadBookmarks(bmCurTag); else alert(r.error || '删除失败');
+}
+async function exportCfg(){
+  const token = document.getElementById('token').value.trim();
+  if(!token){ alert('请先在上方填写管理员 Token'); return; }
+  const r = await api('/api/export?token='+encodeURIComponent(token));
+  if(r.error){ alert(r.error); return; }
+  const blob = new Blob([JSON.stringify(r, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'wecom-pusher-config-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 document.getElementById('chMode').addEventListener('change', e=>{

@@ -179,6 +179,39 @@ export function kwMatch(item, kws) {
   return kws.some((k) => t.includes(k.toLowerCase()));
 }
 
+// —— 留存度量：连续服务天数 & 月度聚合（零成本，KV 单值，写频可控）——
+// 北京时间日期 YYYY-MM-DD
+export function shDate(now) {
+  return new Date(now + 8 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+// 连续服务天数：cron 每天跑即推进；断更（服务挂了一天）则归 1。约 1 写/天。
+export async function bumpStreak() {
+  const t = shDate(Date.now());
+  const s = await readList('streak', { count: 0, lastDate: '' });
+  const last = s.lastDate || '';
+  if (last === t) return s; // 今天已记，不重复写
+  const y = new Date(Date.now() + 8 * 3600 * 1000 - 86400000).toISOString().slice(0, 10);
+  const count = last === y ? (s.count || 0) + 1 : 1;
+  const nv = { count, lastDate: t };
+  await writeList('streak', nv);
+  return nv;
+}
+
+// 月度聚合：digest/sched/chan/rss/bookmark 计数。仅在 deltas 有值时调用（读改写一次）。
+export async function bumpMonthly(delta) {
+  const m = shDate(Date.now()).slice(0, 7); // YYYY-MM
+  const k = 'mstat:' + m;
+  const cur = await readList(k, { digest: 0, sched: 0, chan: 0, rss: 0, bookmark: 0 });
+  cur.digest += delta.digest || 0;
+  cur.sched += delta.sched || 0;
+  cur.chan += delta.chan || 0;
+  cur.rss += delta.rss || 0;
+  cur.bookmark += delta.bookmark || 0;
+  await writeList(k, cur);
+  return cur;
+}
+
 // 计算某个定时规则在 Asia/Shanghai 的"上一次发生时刻"
 export function lastOccurrence(p, now) {
   const off = 8 * 3600 * 1000;

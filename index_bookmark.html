@@ -61,6 +61,9 @@
     <label>备注 / 正文（可选）</label>
     <textarea id="content" placeholder="想给自己留的话"></textarea>
 
+    <label>标签（可选，逗号分隔，最多 10 个）</label>
+    <input id="tags" placeholder="如：AI,产品,待读" />
+
     <div class="row">
       <input type="checkbox" id="remember" />
       <label style="margin:0">记住我的机器人（本机浏览器保存，下次免填）</label>
@@ -126,11 +129,12 @@ async function send(autoClose){
   const title = document.getElementById('title').value.trim();
   const url = document.getElementById('url').value.trim();
   const content = document.getElementById('content').value;
+  const tags = document.getElementById('tags').value.split(',').map(k=>k.trim()).filter(Boolean).slice(0,10);
   if(!botUrl || !title){ show(false, '请先填机器人地址和标题'); return false; }
   // 记住/清除
   if (remember.checked) localStorage.setItem(LS_KEY, botUrl);
   else localStorage.removeItem(LS_KEY);
-  const r = await api('/api/bookmark', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({botUrl, title, url, content})});
+  const r = await api('/api/bookmark', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({botUrl, title, url, content, tags})});
   if(r.ok){ show(true, autoClose ? '已推送到你的机器人，本页将自动关闭 ✓' : '已推送到你的机器人 ✓'); return true; }
   else { show(false, r.error || '推送失败'); return false; }
 }
