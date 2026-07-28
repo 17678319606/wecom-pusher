@@ -212,6 +212,17 @@ export async function bumpMonthly(delta) {
   return cur;
 }
 
+// 零成本站点埋点：每日聚合计数器（KV 单值，配合前端采样控制写频）
+// 事件：pv 页面浏览(采样) / uv 独立访客(每日去重) / widget 被嵌入 / sub 订阅 / unsub 退订
+export async function bumpTrack(event) {
+  const d = shDate(Date.now());
+  const k = 'track:' + d;
+  const cur = await readList(k, { pv: 0, uv: 0, widget: 0, sub: 0, unsub: 0 });
+  if (event in cur) cur[event] += 1;
+  await writeList(k, cur);
+  return cur;
+}
+
 // 计算某个定时规则在 Asia/Shanghai 的"上一次发生时刻"
 export function lastOccurrence(p, now) {
   const off = 8 * 3600 * 1000;

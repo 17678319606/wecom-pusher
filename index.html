@@ -52,6 +52,11 @@
   .ad-slot { max-width:560px; margin:0 auto 14px; padding:0 16px; }
   .ad-slot:empty { display:none; }
   .ad-slot > * { display:block; margin:0 auto; }
+  .topnav { display:flex; gap:8px; margin-bottom:12px; font-size:13px; }
+  .topnav a { color:var(--mut); text-decoration:none; padding:6px 12px; border-radius:8px; border:1px solid var(--bd); background:var(--card); }
+  .topnav a.active { color:var(--pri); border-color:var(--pri); font-weight:600; }
+  .topnav a:hover { color:var(--pri); }
+  .cta { display:block; text-align:center; padding:12px; background:var(--pri); color:#fff; border-radius:10px; font-weight:600; text-decoration:none; }
 </style>
 <script type="application/ld+json">
 {
@@ -69,6 +74,10 @@
 </head>
 <body>
 <div class="wrap">
+  <div class="topnav">
+    <a href="/" class="active">订阅首页</a>
+    <a href="/bookmark">收藏推送</a>
+  </div>
   <h1>推送订阅</h1>
   <div class="sub">填自己的机器人链接（企业微信 / 飞书 / 钉钉），订阅 RSS 源与自定义内容频道</div>
 
@@ -110,6 +119,14 @@
     <div class="card">
       <div class="cap">当前订阅人数：<span id="subCount">-</span></div>
       <div class="cap">免费档约支持数万~十万订阅者（受 KV 单值 25MB 约束）；每日新增订阅上限约 1 万（写次数）。接近上限会提醒。</div>
+    </div>
+
+    <div class="card" id="embedCard">
+      <label>嵌入到你的网站（零成本引流）</label>
+      <div class="hint">把下面代码粘到任意网页，即可嵌入这个订阅组件——你的访客订阅后也会成为你的订阅者，形成流量回流。</div>
+      <textarea id="embedCode" readonly rows="3" style="font-size:12px;margin-top:8px"></textarea>
+      <button class="ghost" style="width:auto;margin-top:8px" onclick="copyEmbed()">复制嵌入代码</button>
+      <div class="msg" id="embedMsg"></div>
     </div>
   </div>
 
@@ -254,6 +271,7 @@
 const api = (p, opt) => fetch(p, opt).then(r => r.json().catch(()=>({})));
 function switchTab(t){ document.getElementById('tabSub').classList.toggle('active', t==='sub'); document.getElementById('tabAdmin').classList.toggle('active', t==='admin'); document.getElementById('pSub').classList.toggle('hidden', t!=='sub'); document.getElementById('pAdmin').classList.toggle('hidden', t!=='admin'); }
 function show(id, ok, text, warn){ const e=document.getElementById(id); e.className='msg '+(warn?'warn':(ok?'ok':'err')); e.textContent=text; }
+function ping(e){ try { const i = new Image(); i.src = '/api/track?e='+encodeURIComponent(e)+'&_='+Date.now(); } catch(_){} }
 const params = new URLSearchParams(location.search);
 const preSrc = params.get('source');
 const preChan = params.get('channel');
@@ -463,6 +481,23 @@ if(params.get('unsub')){
   document.getElementById('tabs').classList.add('hidden');
   document.getElementById('pAdmin').classList.add('hidden');
 }
+
+// 嵌入代码（自推荐，形成回流）：展示可直接拷贝的 iframe 片段
+const embedCode = `<iframe src="${location.origin}/?widget=1" width="100%" height="560" style="border:0;border-radius:12px" title="推送订阅"></iframe>`;
+const ec = document.getElementById('embedCode'); if (ec) ec.value = embedCode;
+function copyEmbed(){ try { navigator.clipboard.writeText(embedCode).then(()=>show('embedMsg',true,'已复制，去你的网站粘贴即可 ✓')).catch(()=>{}); } catch(_){} }
+
+// 零成本埋点：UV 每日去重(cookie) + PV 10% 采样 + widget 嵌入计数
+(function track(){
+  try {
+    const p = new URLSearchParams(location.search);
+    const today = new Date(Date.now()+8*3600*1000).toISOString().slice(0,10);
+    const m = document.cookie.match(/(?:^|; )tk_seen=([^;]+)/);
+    if(!m || m[1] !== today){ document.cookie = 'tk_seen='+today+';path=/;max-age=86400'; ping('uv'); }
+    if(Math.random() < 0.1) ping('pv');
+    if(p.has('widget')) ping('widget');
+  } catch(e){}
+})();
 
 // 渲染底部广告位（管理员后台设置；重新执行注入的 <script> 以支持广告 JS）
 function renderAd(html){

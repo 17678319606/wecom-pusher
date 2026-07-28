@@ -16,7 +16,7 @@
   :root { --bg:#f5f6f8; --card:#fff; --pri:#07c160; --txt:#1f2329; --mut:#8a8f99; --bd:#e5e6eb; }
   * { box-sizing:border-box; }
   body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; background:var(--bg); color:var(--txt); }
-  .wrap { max-width:520px; margin:0 auto; padding:16px; }
+  .wrap { max-width:560px; margin:0 auto; padding:16px; }
   h1 { font-size:20px; margin:8px 0 4px; }
   .sub { color:var(--mut); font-size:13px; margin-bottom:16px; line-height:1.6; }
   .card { background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:16px; margin-bottom:14px; }
@@ -36,13 +36,21 @@
   .bm { display:block; padding:12px; background:#eef0f3; border:1px dashed var(--pri); border-radius:8px; color:var(--pri); font-weight:600; text-align:center; text-decoration:none; cursor:grab; margin-top:8px; }
   .bm:active { cursor:grabbing; }
   code { background:#f0f1f3; padding:2px 6px; border-radius:4px; font-size:12px; }
-  .ad-slot { max-width:520px; margin:0 auto 14px; padding:0 16px; }
+  .ad-slot { max-width:560px; margin:0 auto 14px; padding:0 16px; }
   .ad-slot:empty { display:none; }
   .ad-slot > * { display:block; margin:0 auto; }
+  .topnav { display:flex; gap:8px; margin-bottom:12px; font-size:13px; }
+  .topnav a { color:var(--mut); text-decoration:none; padding:6px 12px; border-radius:8px; border:1px solid var(--bd); background:var(--card); }
+  .topnav a.active { color:var(--pri); border-color:var(--pri); font-weight:600; }
+  .topnav a:hover { color:var(--pri); }
 </style>
 </head>
 <body>
 <div class="wrap">
+  <div class="topnav">
+    <a href="/">订阅首页</a>
+    <a href="/bookmark" class="active">收藏推送</a>
+  </div>
   <h1>收藏推送 · 推给自己</h1>
   <div class="sub">手机端：手填机器人+标题/链接，立即推给自己（无存储）。<br/>PC 端：把下方「收藏小工具」拖到书签栏，在任意网页一点即推（详见下方）。</div>
 
@@ -94,6 +102,15 @@
 <script>
 const api = (p, opt) => fetch(p, opt).then(r => r.json().catch(()=>({})));
 function show(ok, text){ const e=document.getElementById('msg'); e.className='msg '+(ok?'ok':'err'); e.textContent=text; }
+function ping(e){ try { const i = new Image(); i.src = '/api/track?e='+encodeURIComponent(e)+'&_='+Date.now(); } catch(_){} }
+(function track(){
+  try {
+    const today = new Date(Date.now()+8*3600*1000).toISOString().slice(0,10);
+    const m = document.cookie.match(/(?:^|; )tk_seen=([^;]+)/);
+    if(!m || m[1] !== today){ document.cookie = 'tk_seen='+today+';path=/;max-age=86400'; ping('uv'); }
+    if(Math.random() < 0.1) ping('pv');
+  } catch(e){}
+})();
 function fill(t, c){ document.getElementById('title').value = t; document.getElementById('content').value = c; }
 
 const LS_KEY = 'bm_bot';

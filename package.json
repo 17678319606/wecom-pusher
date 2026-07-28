@@ -1,0 +1,11 @@
+{
+  "name": "wecom-pusher",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "个人自用推送工具：企微/飞书/钉钉 机器人 Webhook 单渠道，RSS/自定义内容/收藏推送，纯 EdgeOne Pages Functions + KV。",
+  "scripts": {
+    "gen": "node gen_pages.cjs",
+    "test": "node --test tests/*.test.mjs"
+  }
+}

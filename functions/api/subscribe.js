@@ -1,4 +1,4 @@
-import { json, preflight, readList, writeList, simpleHash, rateLimited, clientIp } from '../_lib.js';
+import { json, preflight, readList, writeList, simpleHash, rateLimited, clientIp, bumpTrack } from '../_lib.js';
 
 const WEBHOOK_RE = /^https:\/\/(qyapi\.weixin\.qq\.com\/cgi-bin\/webhook\/send\?key=|open\.feishu\.(cn|com)\/open-apis\/bot\/v2\/hook\/|oapi\.dingtalk\.com\/robot\/send\?access_token=)/i;
 const WARN_SIZE = 22 * 1024 * 1024;
@@ -36,6 +36,7 @@ export async function onRequestPost(context) {
     size > WARN_SIZE || subs.length > WARN_COUNT
       ? '订阅者数据已接近 KV 单值 25MB 上限，继续增长建议做分片或外置数据库'
       : null;
+  try { await bumpTrack('sub'); } catch (_) {}
   return json({ ok: true, id, count: subs.length, warn });
 }
 
@@ -50,6 +51,7 @@ export async function onRequestGet(context) {
     if (!hit || hit.token !== token) return json({ error: '无效退订链接' }, 400);
     subs = subs.filter((s) => s.id !== id);
     await writeList('subscribers', subs);
+    try { await bumpTrack('unsub'); } catch (_) {}
     return json({ ok: true, count: subs.length });
   }
   const subs = await readList('subscribers', []);
