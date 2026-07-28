@@ -179,8 +179,24 @@ test('stats: track→stats 联通，漏斗反映埋点（消头号盲区）', as
   assert.equal(data.track30.uv, 1);
   assert.equal(data.track30.sub, 1);
   assert.equal(data.track30.unsub, 0);
-  // 既有概览字段不受影响
+  // 既有概览字段不受影响；新增订阅规模 + 投递质量
   assert.ok('streak' in data && 'mstat' in data && 'sources' in data);
+  assert.equal(data.subscribers, 0); // 测试桩无订阅者
+  assert.equal(data.delivery.ok, 0);
+  assert.equal(data.delivery.fail, 0);
+  assert.equal(data.delivery.rate, null); // 无投递样本时率为 null
+  // 投递成功率聚合：塞入带 stats 的源/群发/频道，断言汇总
+  await globalThis.KV.put('sources', JSON.stringify([{ stats: { ok: 7, fail: 3 } }]));
+  await globalThis.KV.put('pushes', JSON.stringify([{ stats: { ok: 2, fail: 0 } }]));
+  await globalThis.KV.put('channels', JSON.stringify([{ stats: { ok: 1, fail: 1 } }]));
+  const d2 = await (await statsMod.onRequestGet()).json();
+  assert.equal(d2.delivery.ok, 10);
+  assert.equal(d2.delivery.fail, 4);
+  assert.equal(d2.delivery.rate, Number((10 / 14).toFixed(4)));
+  // 还原，避免污染其它用例
+  await globalThis.KV.put('sources', JSON.stringify([]));
+  await globalThis.KV.put('pushes', JSON.stringify([]));
+  await globalThis.KV.put('channels', JSON.stringify([]));
 });
 
 test('rateLimited: 达到上限后限流；不同 key 独立', async () => {
