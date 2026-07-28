@@ -39,6 +39,29 @@ test('detectPlatform: 三平台识别 + unknown', () => {
   assert.equal(lib.detectPlatform('https://example.com/x'), 'unknown');
 });
 
+test('WEBHOOK_RE: 校验三平台合法地址，拒绝非法', () => {
+  assert.ok(lib.WEBHOOK_RE.test('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=x'));
+  assert.ok(lib.WEBHOOK_RE.test('https://open.feishu.cn/open-apis/bot/v2/hook/x'));
+  assert.ok(lib.WEBHOOK_RE.test('https://open.feishu.com/open-apis/bot/v2/hook/x'));
+  assert.ok(lib.WEBHOOK_RE.test('https://oapi.dingtalk.com/robot/send?access_token=x'));
+  assert.ok(!lib.WEBHOOK_RE.test('https://example.com/x'));
+  assert.ok(!lib.WEBHOOK_RE.test('http://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=x')); // 非 https
+});
+
+test('buildWebhookBody: 按平台构造正确请求体', () => {
+  const w = lib.buildWebhookBody('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=x', 'C', 'T');
+  assert.equal(w.platform, 'wecom');
+  assert.deepEqual(w.body, { msgtype: 'markdown', markdown: { content: 'C' } });
+
+  const f = lib.buildWebhookBody('https://open.feishu.cn/open-apis/bot/v2/hook/x', 'C', 'T');
+  assert.equal(f.platform, 'feishu');
+  assert.deepEqual(f.body, { msg_type: 'markdown', markdown: { title: 'T', content: 'C' } });
+
+  const d = lib.buildWebhookBody('https://oapi.dingtalk.com/robot/send?access_token=x', 'C', 'T');
+  assert.equal(d.platform, 'dingtalk');
+  assert.deepEqual(d.body, { msgtype: 'markdown', markdown: { title: 'T', text: 'C' } });
+});
+
 test('renderMarkdown: 含标题/正文/链接，noAd 时去掉赞助脚注', () => {
   const md = lib.renderMarkdown({ title: 'T', content: 'C', url: 'https://u' }, false);
   assert.ok(md.includes('## T'));

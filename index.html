@@ -102,6 +102,8 @@
       <label>你的机器人 Webhook 地址</label>
       <input id="botUrl" placeholder="企微 / 飞书 / 钉钉 群机器人 Webhook" />
       <div class="hint">群 → 添加群机器人 → 复制 Webhook（支持企业微信、飞书、钉钉）</div>
+      <button class="ghost" style="width:auto;margin-top:8px" onclick="doCheck()">测试 Webhook</button>
+      <div class="msg" id="checkMsg"></div>
 
       <div class="grp">RSS 源</div>
       <div id="srcList"><div class="hint">加载中…</div></div>
@@ -299,6 +301,15 @@ async function loadCount(){
   const warn = document.getElementById('adminWarn');
   if(c.count > 90000){ warn.classList.remove('hidden'); warn.textContent = '订阅者已超 9 万，接近 KV 单值 25MB 上限，建议分片/外置数据库'; }
   else warn.classList.add('hidden');
+}
+
+async function doCheck(){
+  const botUrl = document.getElementById('botUrl').value.trim();
+  if(!botUrl){ show('checkMsg', false, '请先填写 Webhook 地址'); return; }
+  show('checkMsg', true, '正在发送测试消息…', true);
+  const r = await api('/api/check', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url: botUrl})});
+  if(r.ok) show('checkMsg', true, '✅ '+(r.platform||'')+' 自检成功，测试消息已送达你的机器人');
+  else show('checkMsg', false, '❌ '+(r.error||'自检失败'));
 }
 
 async function doSubscribe(){

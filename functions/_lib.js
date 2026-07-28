@@ -63,6 +63,9 @@ export function detectPlatform(url) {
   return 'unknown';
 }
 
+// 机器人 Webhook 合法性校验（订阅与自检共用）
+export const WEBHOOK_RE = /^https:\/\/(qyapi\.weixin\.qq\.com\/cgi-bin\/webhook\/send\?key=|open\.feishu\.(cn|com)\/open-apis\/bot\/v2\/hook\/|oapi\.dingtalk\.com\/robot\/send\?access_token=)/i;
+
 // 渲染标准 markdown 消息体（保留用户换行，仅剥离 HTML 标签/实体）
 export function renderMarkdown({ title, content = '', url = '', digest = '' }, noAd = false) {
   let md = `## ${title}\n`;
@@ -84,14 +87,18 @@ export function renderMarkdown({ title, content = '', url = '', digest = '' }, n
   return md;
 }
 
+// 纯函数：根据平台构造机器人请求体（可单测，不依赖网络）
+export function buildWebhookBody(url, md, title = '通知') {
+  const plat = detectPlatform(url);
+  if (plat === 'wecom') return { platform: 'wecom', body: { msgtype: 'markdown', markdown: { content: md } } };
+  if (plat === 'feishu') return { platform: 'feishu', body: { msg_type: 'markdown', markdown: { title, content: md } } };
+  if (plat === 'dingtalk') return { platform: 'dingtalk', body: { msgtype: 'markdown', markdown: { title, text: md } } };
+  return { platform: 'unknown', body: { msgtype: 'markdown', markdown: { content: md } } };
+}
+
 // 直接发送一段 markdown（早报等自定义排版用）
 export async function pushMarkdown(botUrl, md, title = '通知', attempts = 2) {
-  const plat = detectPlatform(botUrl);
-  let body;
-  if (plat === 'wecom') body = { msgtype: 'markdown', markdown: { content: md } };
-  else if (plat === 'feishu') body = { msg_type: 'markdown', markdown: { title, content: md } };
-  else if (plat === 'dingtalk') body = { msgtype: 'markdown', markdown: { title, text: md } };
-  else body = { msgtype: 'markdown', markdown: { content: md } };
+  const { body } = buildWebhookBody(botUrl, md, title);
   let last = 500;
   for (let i = 0; i < attempts; i++) {
     try {

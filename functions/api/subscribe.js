@@ -1,6 +1,5 @@
-import { json, preflight, readList, writeList, simpleHash, rateLimited, clientIp, bumpTrack } from '../_lib.js';
+import { json, preflight, readList, writeList, simpleHash, rateLimited, clientIp, bumpTrack, WEBHOOK_RE } from '../_lib.js';
 
-const WEBHOOK_RE = /^https:\/\/(qyapi\.weixin\.qq\.com\/cgi-bin\/webhook\/send\?key=|open\.feishu\.(cn|com)\/open-apis\/bot\/v2\/hook\/|oapi\.dingtalk\.com\/robot\/send\?access_token=)/i;
 const WARN_SIZE = 22 * 1024 * 1024;
 const WARN_COUNT = 90000;
 
