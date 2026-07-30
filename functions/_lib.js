@@ -66,15 +66,40 @@ export function detectPlatform(url) {
 // 机器人 Webhook 合法性校验（订阅与自检共用）
 export const WEBHOOK_RE = /^https:\/\/(qyapi\.weixin\.qq\.com\/cgi-bin\/webhook\/send\?key=|open\.feishu\.(cn|com)\/open-apis\/bot\/v2\/hook\/|oapi\.dingtalk\.com\/robot\/send\?access_token=)/i;
 
-// 渲染标准 markdown 消息体（保留用户换行，仅剥离 HTML 标签/实体）
+// 把正文里的链接"盘活"：
+//  - 保留 <a href="URL">TEXT</a> → [TEXT](URL)（先于通用标签剥离，避免 URL 丢失）
+//  - 剥离其余 HTML 标签、还原常见实体
+//  - 裸 URL（http/https/www.）包裹成 [URL](URL)，使飞书/钉钉/企微 markdown 均能渲染为可点链接
+//  说明：飞书/钉钉 markdown 只认 [文字](url)；企微对 <a href> 兼容性最好（buildWebhookBody 会再转换）
+export function linkify(raw) {
+  if (!raw) return '';
+  let s = String(raw);
+  s = s.replace(/<a\s+[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (m, url, text) => {
+    const t = (text || '').replace(/<[^>]*>/g, '').trim() || url;
+    return `[${t}](${url})`;
+  });
+  s = s.replace(/<[^>]*>/g, ' ');
+  s = s
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&ndash;/gi, '–')
+    .replace(/&mdash;/gi, '—')
+    .replace(/&hellip;/gi, '…');
+  // 裸 URL（http/https）包裹为链接；前置字符限定为空白/标点，避免与已有的 [text](url) / (url) 重复包裹
+  s = s.replace(/(^|[\s，。、；：,;:！？!?])(https?:\/\/[^\s<>"'）]+)/gi, (m, pre, url) => `${pre}[${url}](${url})`);
+  s = s.replace(/(^|[\s，。、；：,;:！？!?])(www\.[^\s<>"'）]+)/gi, (m, pre, url) => `${pre}[${url}](http://${url})`);
+  return s;
+}
+
+// 渲染标准 markdown 消息体（正文经 linkify 处理，链接可点；保留用户换行）
 export function renderMarkdown({ title, content = '', url = '', digest = '' }, noAd = false) {
   let md = `## ${title}\n`;
   const raw = digest || content || '';
-  // 剥 HTML 标签与实体，压缩空格/制表符，但保留换行（多行内容逐行渲染为引号行）
-  const t = raw
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&[a-z]+;/gi, ' ')
-    .replace(/[ \t]+/g, ' ')
+  const t = linkify(raw)
     .split('\n')
     .map((l) => l.trim())
     .filter((l, i, arr) => l !== '' || (arr[i - 1] !== '' && arr[i + 1] !== ''))
@@ -87,13 +112,21 @@ export function renderMarkdown({ title, content = '', url = '', digest = '' }, n
   return md;
 }
 
+// 把标准 markdown 链接 [text](url) 转成 <a href="url">text</a>
+// 企业微信对 <a> 标签兼容性最好，避免其 markdown 内联链接被服务端降级为纯文本（飞书/钉钉原生支持 [text](url)，无需转换）
+// 先 linkify 兜底：确保企微消息里任何裸 URL / 残留 <a> 也先变成 [text](url)，再统一转 <a href>
+function mdToAnchor(md) {
+  const linked = linkify(md);
+  return linked.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, (m, text, url) => `<a href="${url}">${text}</a>`);
+}
+
 // 纯函数：根据平台构造机器人请求体（可单测，不依赖网络）
 export function buildWebhookBody(url, md, title = '通知') {
   const plat = detectPlatform(url);
-  if (plat === 'wecom') return { platform: 'wecom', body: { msgtype: 'markdown', markdown: { content: md } } };
+  if (plat === 'wecom') return { platform: 'wecom', body: { msgtype: 'markdown', markdown: { content: mdToAnchor(md) } } };
   if (plat === 'feishu') return { platform: 'feishu', body: { msg_type: 'markdown', markdown: { title, content: md } } };
   if (plat === 'dingtalk') return { platform: 'dingtalk', body: { msgtype: 'markdown', markdown: { title, text: md } } };
-  return { platform: 'unknown', body: { msgtype: 'markdown', markdown: { content: md } } };
+  return { platform: 'unknown', body: { msgtype: 'markdown', markdown: { content: mdToAnchor(md) } } };
 }
 
 // 直接发送一段 markdown（早报等自定义排版用）

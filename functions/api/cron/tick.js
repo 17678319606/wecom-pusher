@@ -98,7 +98,8 @@ export async function onRequestPost() {
       const newItem = {
         title: top.title,
         link: top.link,
-        description: stripTags(top.description),
+        // 不在此处 stripTags：交给 renderMarkdown→linkify 保留 <a> 链接并自动链接化裸 URL
+        description: top.description || '',
       };
       src.lastHash = topHash;
       recover(src, now); // 抓取成功 → 解除疑似失效
