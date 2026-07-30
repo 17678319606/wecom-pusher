@@ -15,7 +15,8 @@
 <style>
   :root { --bg:#f5f6f8; --card:#fff; --pri:#07c160; --txt:#1f2329; --mut:#8a8f99; --bd:#e5e6eb; }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; background:var(--bg); color:var(--txt); }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; background:var(--bg); color:var(--txt); overflow-wrap:anywhere; word-break:break-word; overflow-x:hidden; }
+  img, video, iframe, svg { max-width:100%; height:auto; }
   .wrap { max-width:560px; margin:0 auto; padding:16px; }
   h1 { font-size:20px; margin:8px 0 4px; }
   .sub { color:var(--mut); font-size:13px; margin-bottom:16px; line-height:1.6; }
@@ -43,6 +44,13 @@
   .topnav a { color:var(--mut); text-decoration:none; padding:6px 12px; border-radius:8px; border:1px solid var(--bd); background:var(--card); }
   .topnav a.active { color:var(--pri); border-color:var(--pri); font-weight:600; }
   .topnav a:hover { color:var(--pri); }
+  @media (max-width:480px) {
+    .wrap { padding:12px; }
+    h1 { font-size:18px; }
+    .card { padding:14px; }
+    input, textarea, button { font-size:14px; }
+    .topnav { flex-wrap:wrap; }
+  }
 </style>
 </head>
 <body>
