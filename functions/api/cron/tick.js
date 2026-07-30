@@ -37,11 +37,11 @@ function markFail(src, now) {
   src.lastCheck = now;
 }
 
-// 由 edgeone.json 的 schedules 每 2 小时触发一次（cron: 0 */2 * * *）
+// 由 edgeone.json 的 schedules 每小时触发一次（cron: 0 * * * *）
 // 负责：
-//   1) RSS 每小时汇总推送（标题+链接，节省资源；订阅者关键词过滤）
+//   1) RSS 汇总推送（06:00-22:00 每小时；22:00-06:00 静默期不推送，内容在 06:00 补发）
 //   2) 定时群发（给所有人）
-//   3) 自定义内容频道定时推送
+//   3) 自定义内容频道定时推送（到点自动发）
 //   附加：连续服务天数 / 月度聚合度量；RSS 源失效自愈
 export async function onRequestPost() {
   const now = Date.now();
@@ -61,60 +61,68 @@ export async function onRequestPost() {
   let schedSent = 0;
   let chanSent = 0;
 
-  // 1) RSS 每 2 小时汇总：抓取所有源，收集本周期内的新条目，一次性发送（仅标题+链接，节省资源）
-  const rssBuffer = [];
-  for (const src of sources) {
-    src.stats = src.stats || { ok: 0, fail: 0 };
-    src.failCount = src.failCount || 0;
-    try {
-      const resp = await fetch(src.url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 WeComPusher/1.0' },
-      });
-      if (!resp.ok) {
+  // 1) RSS 汇总：06:00-22:00 每小时推送；22:00-06:00 静默期不抓取不推送
+  //    （静默期内新内容不写入 seen，06:00 首次触发时随新条目一起补发，不漏内容）
+  const bjHour = new Date(now + 8 * 3600 * 1000).getUTCHours();
+  const rssQuiet = bjHour < 6 || bjHour >= 22;
+  if (!rssQuiet) {
+    const rssBuffer = [];
+    for (const src of sources) {
+      src.stats = src.stats || { ok: 0, fail: 0 };
+      src.failCount = src.failCount || 0;
+      try {
+        const resp = await fetch(src.url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 WeComPusher/1.0' },
+        });
+        if (!resp.ok) {
+          markFail(src, now);
+          continue;
+        }
+        const xml = await resp.text();
+        const items = parseRSS(xml).slice(0, 10);
+        if (!items.length) {
+          recover(src, now); // 可达但空，不算失败
+          continue;
+        }
+        src.seen = src.seen || [];
+        const newItems = items.filter((it) => !src.seen.includes(it.link));
+        if (!newItems.length) {
+          recover(src, now); // 无新内容，可达正常
+          continue;
+        }
+        // 记录已见链接（保留最近 50 条，避免重复推送 & 无限增长）
+        for (const it of newItems) src.seen.push(it.link);
+        src.seen = src.seen.slice(-50);
+        recover(src, now); // 抓取成功 → 解除疑似失效
+
+        for (const it of newItems) {
+          rssBuffer.push({ srcId: src.id, item: it });
+        }
+      } catch {
         markFail(src, now);
-        continue;
       }
-      const xml = await resp.text();
-      const items = parseRSS(xml).slice(0, 10);
-      if (!items.length) {
-        recover(src, now); // 可达但空，不算失败
-        continue;
-      }
-      src.seen = src.seen || [];
-      const newItems = items.filter((it) => !src.seen.includes(it.link));
-      if (!newItems.length) {
-        recover(src, now); // 无新内容，可达正常
-        continue;
-      }
-      // 记录已见链接（保留最近 50 条，避免重复推送 & 无限增长）
-      for (const it of newItems) src.seen.push(it.link);
-      src.seen = src.seen.slice(-50);
-      recover(src, now); // 抓取成功 → 解除疑似失效
-
-      for (const it of newItems) {
-        rssBuffer.push({ srcId: src.id, item: it });
-      }
-    } catch {
-      markFail(src, now);
     }
-  }
-  await writeList('sources', sources);
+    await writeList('sources', sources);
 
-  // 发送：每个订阅者一条汇总（仅含其订阅源 + 关键词命中），每条只含标题+链接
-  if (rssBuffer.length) {
-    for (const s of subs) {
-      const lines = [];
-      for (const { srcId, item } of rssBuffer) {
-        if (!Array.isArray(s.sources) || !s.sources.includes(srcId)) continue;
-        if (!kwMatch(item, s.keywords)) continue;
-        lines.push(`- [${item.title}](${item.link})`);
+    // 发送：每个订阅者一条汇总（仅含其订阅源 + 关键词命中），每条只含标题+链接
+    if (rssBuffer.length) {
+      for (const s of subs) {
+        const lines = [];
+        for (const { srcId, item } of rssBuffer) {
+          if (!Array.isArray(s.sources) || !s.sources.includes(srcId)) continue;
+          if (!kwMatch(item, s.keywords)) continue;
+          lines.push(`- [${item.title}](${item.link})`);
+        }
+        if (!lines.length) continue;
+        const md = `## 📰 RSS 汇总（共 ${lines.length} 条）\n${lines.join('\n')}${AD_FOOTER}`;
+        const st = await pushMarkdown(s.botUrl, md, 'RSS 每小时汇总');
+        if (st >= 200 && st < 300) rssSent += lines.length;
+        else rssFailed++;
       }
-      if (!lines.length) continue;
-      const md = `## 📰 RSS 汇总（共 ${lines.length} 条）\n${lines.join('\n')}${AD_FOOTER}`;
-      const st = await pushMarkdown(s.botUrl, md, 'RSS 每小时汇总');
-      if (st >= 200 && st < 300) rssSent += lines.length;
-      else rssFailed++;
     }
+  } else {
+    // 静默期：跳过 RSS 抓取与推送（自定义内容/频道仍照常处理）
+    console.log(`[tick] RSS 静默期（${bjHour}:00 北京时间），跳过 RSS`);
   }
 
   // 2) 定时群发（给所有人，不受静默影响）
