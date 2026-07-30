@@ -57,6 +57,8 @@ export async function onRequestPost() {
 
   // 连续服务天数：cron 每次跑即视为"服务在线"一天（断更归 1）
   await bumpStreak();
+  // 记录最近一次 tick 时间，供 /api/health 判断定时任务是否存活（排查"不推送"用）
+  await KV.put('lastTick', String(now));
 
   const sources = await readList('sources', []);
   const channels = await readList('channels', []);
