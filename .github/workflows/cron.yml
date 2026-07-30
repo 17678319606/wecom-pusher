@@ -1,0 +1,20 @@
+name: wecom-pusher hourly tick
+
+# 替代 EdgeOne 原生不生效的 edgeone.json schedules（wecom-pusher 是 Makers 项目，
+# 原生 schedule 静默不触发，已实测多次）。本工作流每小时 GET 一次 /api/cron/tick，
+# 由函数内部完成 RSS 汇总 / 定时群发 / 自定义频道推送。
+on:
+  schedule:
+    - cron: '0 * * * *'          # 每小时 UTC = 每小时北京时间（仅时区偏移，仍覆盖全部整点）
+  workflow_dispatch: {}          # 允许手动触发，便于验证
+permissions:
+  contents: read
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping cron endpoint
+        run: |
+          echo "triggering https://sub.jinbufenzi.com/api/cron/tick"
+          curl -fsS -m 30 "https://sub.jinbufenzi.com/api/cron/tick" || echo "tick request finished (exit non-zero ignored)"

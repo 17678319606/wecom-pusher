@@ -24,7 +24,7 @@ export async function onRequestGet() {
     lastDate: streak.lastDate || '',
     now: new Date(now).toISOString(),
     note: cronAlive
-      ? '定时任务正常：外部定时器（UptimeRobot 免费版，每小时 GET）在按时触发 /api/cron/tick。RSS 在 22:00-06:00 静默。'
-      : '定时任务未触发或已失效。请用 UptimeRobot 免费版建一个监控：URL=https://sub.jinbufenzi.com/api/cron/tick，间隔=60分钟，方法=GET（无需 Keyword/告警）。它每小时 GET 一次即触发 tick。',
+      ? '定时任务正常：GitHub Actions 工作流（仓库 .github/workflows/cron.yml，每小时 GET）在按时触发 /api/cron/tick。RSS 在 22:00-06:00 静默。'
+      : '定时任务未触发或已失效。请确认仓库 .github/workflows/cron.yml 的 Actions 已启用（或在 UptimeRobot 免费版建监控：URL=https://sub.jinbufenzi.com/api/cron/tick，间隔=60分钟，GET）。',
   });
 }
