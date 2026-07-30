@@ -69,8 +69,8 @@ export const WEBHOOK_RE = /^https:\/\/(qyapi\.weixin\.qq\.com\/cgi-bin\/webhook\
 // 把正文里的链接"盘活"：
 //  - 保留 <a href="URL">TEXT</a> → [TEXT](URL)（先于通用标签剥离，避免 URL 丢失）
 //  - 剥离其余 HTML 标签、还原常见实体
-//  - 裸 URL（http/https/www.）包裹成 [URL](URL)，使飞书/钉钉/企微 markdown 均能渲染为可点链接
-//  说明：飞书/钉钉 markdown 只认 [文字](url)；企微对 <a href> 兼容性最好（buildWebhookBody 会再转换）
+//  - 裸 URL（http/https/www.）包裹成 [URL](URL)
+//  三平台统一使用 markdown + [text](url) 语法（企微/飞书/钉钉均支持）
 export function linkify(raw) {
   if (!raw) return '';
   let s = String(raw);
@@ -112,21 +112,18 @@ export function renderMarkdown({ title, content = '', url = '', digest = '' }, n
   return md;
 }
 
-// 把标准 markdown 链接 [text](url) 转成 <a href="url">text</a>
-// 企业微信对 <a> 标签兼容性最好，避免其 markdown 内联链接被服务端降级为纯文本（飞书/钉钉原生支持 [text](url)，无需转换）
-// 先 linkify 兜底：确保企微消息里任何裸 URL / 残留 <a> 也先变成 [text](url)，再统一转 <a href>
-function mdToAnchor(md) {
-  const linked = linkify(md);
-  return linked.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, (m, text, url) => `<a href="${url}">${text}</a>`);
-}
-
 // 纯函数：根据平台构造机器人请求体（可单测，不依赖网络）
+// 三平台统一使用 markdown 类型 + [text](url) 链接语法：
+//   - 企微：官方文档明确支持 [text](url)（见 developer.work.weixin.qq.com/document/path/91770）
+//   - 飞书：原生支持 [text](url)
+//   - 钉钉：原生支持 [text](url)
+// 注：企微旧版客户端(<4.1.36) 可能降级为纯文本，建议使用最新版
 export function buildWebhookBody(url, md, title = '通知') {
   const plat = detectPlatform(url);
-  if (plat === 'wecom') return { platform: 'wecom', body: { msgtype: 'markdown', markdown: { content: mdToAnchor(md) } } };
+  if (plat === 'wecom') return { platform: 'wecom', body: { msgtype: 'markdown', markdown: { content: md } } };
   if (plat === 'feishu') return { platform: 'feishu', body: { msg_type: 'markdown', markdown: { title, content: md } } };
   if (plat === 'dingtalk') return { platform: 'dingtalk', body: { msgtype: 'markdown', markdown: { title, text: md } } };
-  return { platform: 'unknown', body: { msgtype: 'markdown', markdown: { content: mdToAnchor(md) } } };
+  return { platform: 'unknown', body: { msgtype: 'markdown', markdown: { content: md } } };
 }
 
 // 直接发送一段 markdown（早报等自定义排版用）
