@@ -14,13 +14,7 @@ import {
   bumpMonthly,
 } from '../../_lib.js';
 
-// 北京时间（Asia/Shanghai）小时数 0-23
-function shHour(now) {
-  return new Date(now + 8 * 3600 * 1000).getUTCHours();
-}
-
-const inSilent = (h) => h >= 21 || h < 6; // 21:00 - 次日 06:00 静默
-const digestDue = (h) => h >= 8; // 早 8 点发聚合早报
+// 由 edgeone.json 的 schedules 每小时触发一次（cron: 0 * * * *）
 
 // 单条推送并累计统计
 async function send(s, payload, stats) {
@@ -43,17 +37,14 @@ function markFail(src, now) {
   src.lastCheck = now;
 }
 
-// 由 edgeone.json 的 schedules 每 5 分钟触发一次
+// 由 edgeone.json 的 schedules 每小时触发一次（cron: 0 * * * *）
 // 负责：
-//   1) RSS 轮询推送（夜间 21:00-06:00 静默，缓存为早报；其余时段即时推送；订阅者关键词过滤）
-//   2) 定时群发（给所有人，不受静默影响）
-//   3) 自定义内容频道定时推送（不受静默影响）
-//   附加：连续服务天数 / 月度聚合度量；RSS 源失效自愈 + 早报静默告警
+//   1) RSS 每小时汇总推送（标题+链接，节省资源；订阅者关键词过滤）
+//   2) 定时群发（给所有人）
+//   3) 自定义内容频道定时推送
+//   附加：连续服务天数 / 月度聚合度量；RSS 源失效自愈
 export async function onRequestPost() {
   const now = Date.now();
-  const h = shHour(now);
-  const silent = inSilent(h);
-  const morning = digestDue(h);
 
   // 连续服务天数：cron 每次跑即视为"服务在线"一天（断更归 1）
   await bumpStreak();
@@ -70,7 +61,8 @@ export async function onRequestPost() {
   let schedSent = 0;
   let chanSent = 0;
 
-  // 1) RSS 轮询
+  // 1) RSS 每小时汇总：抓取所有源，收集本小时内的新条目，一次性发送（仅标题+链接，节省资源）
+  const rssBuffer = [];
   for (const src of sources) {
     src.stats = src.stats || { ok: 0, fail: 0 };
     src.failCount = src.failCount || 0;
@@ -83,48 +75,24 @@ export async function onRequestPost() {
         continue;
       }
       const xml = await resp.text();
-      const items = parseRSS(xml).slice(0, 5);
+      const items = parseRSS(xml).slice(0, 10);
       if (!items.length) {
         recover(src, now); // 可达但空，不算失败
         continue;
       }
-      const top = items[0];
-      const topHash = top.title + '|' + top.link;
-      if (topHash === src.lastHash) {
+      src.seen = src.seen || [];
+      const newItems = items.filter((it) => !src.seen.includes(it.link));
+      if (!newItems.length) {
         recover(src, now); // 无新内容，可达正常
         continue;
       }
-
-      const newItem = {
-        title: top.title,
-        link: top.link,
-        // 不在此处 stripTags：交给 renderMarkdown→linkify 保留 <a> 链接并自动链接化裸 URL
-        description: top.description || '',
-      };
-      src.lastHash = topHash;
+      // 记录已见链接（保留最近 50 条，避免重复推送 & 无限增长）
+      for (const it of newItems) src.seen.push(it.link);
+      src.seen = src.seen.slice(-50);
       recover(src, now); // 抓取成功 → 解除疑似失效
 
-      // 静默窗口：只缓存，不推送
-      if (silent) {
-        const buf = await readList('digest:' + src.id, []);
-        buf.push(newItem);
-        await writeList('digest:' + src.id, buf);
-        continue;
-      }
-
-      // 日间：即时推送（订阅者关键词过滤；疑似失效源不推送）
-      if (src.suspect) continue;
-      const targetSubs = subs.filter(
-        (s) => Array.isArray(s.sources) && s.sources.includes(src.id)
-      );
-      for (const s of targetSubs) {
-        if (!kwMatch(newItem, s.keywords)) continue;
-        if (await send(s, {
-          title: `[${src.name}] ${newItem.title}`,
-          content: newItem.description,
-          url: newItem.link,
-        }, src.stats)) rssSent++;
-        else rssFailed++;
+      for (const it of newItems) {
+        rssBuffer.push({ srcId: src.id, item: it });
       }
     } catch {
       markFail(src, now);
@@ -132,51 +100,20 @@ export async function onRequestPost() {
   }
   await writeList('sources', sources);
 
-  // 1b) 早报：早 8 点把夜间缓存的 RSS 更新聚合推送（疑似失效源不参与）
-  if (morning) {
-    for (const src of sources) {
-      if (src.suspect) continue; // 疑似失效源跳过，避免推陈旧内容
-      const buf = await readList('digest:' + src.id, []);
-      if (!buf.length) continue;
-      const targetSubs = subs.filter(
-        (s) => Array.isArray(s.sources) && s.sources.includes(src.id)
-      );
-      for (const s of targetSubs) {
-        const items = buf.filter((it) => kwMatch(it, s.keywords));
-        if (!items.length) continue;
-        const lines = items
-          .map((it) => `- [${it.title}](${it.link})`)
-          .join('\n');
-        const md = `## 早安 · 昨夜至今的更新\n来自《${src.name}》共 ${items.length} 条：\n${lines}${AD_FOOTER}`;
-        const st = await pushMarkdown(s.botUrl, md, '早安播报');
-        const ok = st >= 200 && st < 300;
-        if (ok) {
-          digestSent++;
-          src.stats.ok++;
-        } else {
-          src.stats.fail++;
-        }
+  // 发送：每个订阅者一条汇总（仅含其订阅源 + 关键词命中），每条只含标题+链接
+  if (rssBuffer.length) {
+    for (const s of subs) {
+      const lines = [];
+      for (const { srcId, item } of rssBuffer) {
+        if (!Array.isArray(s.sources) || !s.sources.includes(srcId)) continue;
+        if (!kwMatch(item, s.keywords)) continue;
+        lines.push(`- [${item.title}](${item.link})`);
       }
-      await writeList('digest:' + src.id, []); // 清空缓存
-    }
-    await writeList('sources', sources);
-
-    // 失效静默告警：当天仅提醒一次，避免刷屏
-    const suspectNow = sources.filter((s) => s.suspect).map((s) => s.name);
-    if (suspectNow.length) {
-      const alertKey = 'alerted:' + shDate(now);
-      const already = await KV.get(alertKey);
-      if (!already) {
-        const md =
-          `## ⚠️ 推送源健康提醒\n` +
-          `有 ${suspectNow.length} 个 RSS 源连续抓取失败（已暂停推送，避免打扰）：\n` +
-          suspectNow.map((n) => `- 《${n}》`).join('\n') +
-          `\n请到后台检查这些源的地址是否失效，恢复后自动解除暂停。${AD_FOOTER}`;
-        for (const s of subs) {
-          await pushMarkdown(s.botUrl, md, '源健康提醒');
-        }
-        await KV.put(alertKey, '1');
-      }
+      if (!lines.length) continue;
+      const md = `## 📰 RSS 每小时汇总（共 ${lines.length} 条）\n${lines.join('\n')}${AD_FOOTER}`;
+      const st = await pushMarkdown(s.botUrl, md, 'RSS 每小时汇总');
+      if (st >= 200 && st < 300) rssSent += lines.length;
+      else rssFailed++;
     }
   }
 
@@ -231,7 +168,6 @@ export async function onRequestPost() {
 
   return json({
     ok: true,
-    silent,
     rssSent,
     rssFailed,
     digestSent,

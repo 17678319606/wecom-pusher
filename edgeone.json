@@ -1,8 +1,8 @@
 {
   "schedules": [
     {
-      "name": "tick-every-5min",
-      "cron": "*/5 * * * *",
+      "name": "tick-hourly",
+      "cron": "0 * * * *",
       "path": "/api/cron/tick",
       "method": "POST",
       "timezone": "Asia/Shanghai"
