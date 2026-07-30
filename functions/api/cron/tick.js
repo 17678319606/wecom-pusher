@@ -14,7 +14,8 @@ import {
   bumpMonthly,
 } from '../../_lib.js';
 
-// 由 edgeone.json 的 schedules 每 2 小时触发一次（cron: 0 */2 * * *）
+// 由外部定时器（UptimeRobot 免费版，每小时 GET）或 edgeone.json schedules 触发
+// 处理所有 HTTP 方法（GET/POST 均可触发）
 
 // 单条推送并累计统计
 async function send(s, payload, stats) {
@@ -43,7 +44,7 @@ function markFail(src, now) {
 //   2) 定时群发（给所有人）
 //   3) 自定义内容频道定时推送（到点自动发）
 //   附加：连续服务天数 / 月度聚合度量；RSS 源失效自愈
-export async function onRequestPost() {
+export async function onRequest() {
   const now = Date.now();
 
   // 连续服务天数：cron 每次跑即视为"服务在线"一天（断更归 1）
