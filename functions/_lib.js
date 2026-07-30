@@ -67,10 +67,13 @@ export function detectPlatform(url) {
 export const WEBHOOK_RE = /^https:\/\/(qyapi\.weixin\.qq\.com\/cgi-bin\/webhook\/send\?key=|open\.feishu\.(cn|com)\/open-apis\/bot\/v2\/hook\/|oapi\.dingtalk\.com\/robot\/send\?access_token=)/i;
 
 // 把正文里的链接"盘活"：
-//  - 保留 <a href="URL">TEXT</a> → [TEXT](URL)（先于通用标签剥离，避免 URL 丢失）
-//  - 剥离其余 HTML 标签、还原常见实体
-//  - 裸 URL（http/https/www.）包裹成 [URL](URL)
-//  三平台统一使用 markdown + [text](url) 语法（企微/飞书/钉钉均支持）
+//   - 保留 <a href="URL">TEXT</a> → [TEXT](URL)（先于通用标签剥离，避免 URL 丢失）
+//   - 剥离其余 HTML 标签、还原常见实体
+//   - 裸 URL（http/https/www.）包裹成 [URL](URL)
+// 平台适配：
+//   飞书/钉钉：直接用 markdown [text](url) 渲染可点链接
+//   企微：buildWebhookBody 走 text 类型，toPlainText() 把 [text](url) 展开为 "text\ntext"（文字一行链接一行），
+//         裸 URL 由企微自动识别为可点链接
 export function linkify(raw) {
   if (!raw) return '';
   let s = String(raw);
@@ -112,15 +115,38 @@ export function renderMarkdown({ title, content = '', url = '', digest = '' }, n
   return md;
 }
 
+// 把 markdown 消息体转为企微专用的纯文本排版。
+// 规则（核心目标：阅读体验清晰）：
+//   1. 标题 ## 剥掉，作为首行普通文字
+//   2. 引用行 > 剥掉引用符，保留正文内容
+//   3. [text](url) → "text" 换行 "url"（文字一行、链接一行）
+//   4. 裸 URL 保持在原位（企微 text 类型自动识别为可点链接）
+//   5. 保留原始内容的换行结构，连续空行压缩为单换行
+function toPlainText(md) {
+  let s = md;
+  // 标题
+  s = s.replace(/^#{1,6}\s+/gm, '');
+  // 加粗/斜体/代码
+  s = s.replace(/(\*\*|__)([\s\S]*?)\1/g, '$2');
+  s = s.replace(/(\*|_)([\s\S]*?)\1/g, '$2');
+  s = s.replace(/`([^`]+)`/g, '$1');
+  // 引用符
+  s = s.replace(/^>\s*/gm, '');
+  // 核心：[text](url) → text 换行 url（每对占两行，视觉清爽）
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, '$1\n$2');
+  // 连续空行压缩
+  s = s.replace(/\n{3,}/g, '\n\n').trim();
+  return s;
+}
+
 // 纯函数：根据平台构造机器人请求体（可单测，不依赖网络）
-// 三平台统一使用 markdown 类型 + [text](url) 链接语法：
-//   - 企微：官方文档明确支持 [text](url)（见 developer.work.weixin.qq.com/document/path/91770）
-//   - 飞书：原生支持 [text](url)
-//   - 钉钉：原生支持 [text](url)
-// 注：企微旧版客户端(<4.1.36) 可能降级为纯文本，建议使用最新版
+// 分平台策略：
+//   - 企微：text 类型 + toPlainText 排版（企微客户端对 markdown 链接渲染不稳定，
+//           text 类型裸 URL 自动识别为可点链接，最可靠）
+//   - 飞书/钉钉：markdown 类型 + [text](url)（原生完美渲染）
 export function buildWebhookBody(url, md, title = '通知') {
   const plat = detectPlatform(url);
-  if (plat === 'wecom') return { platform: 'wecom', body: { msgtype: 'markdown', markdown: { content: md } } };
+  if (plat === 'wecom') return { platform: 'wecom', body: { msgtype: 'text', text: { content: toPlainText(md) } } };
   if (plat === 'feishu') return { platform: 'feishu', body: { msg_type: 'markdown', markdown: { title, content: md } } };
   if (plat === 'dingtalk') return { platform: 'dingtalk', body: { msgtype: 'markdown', markdown: { title, text: md } } };
   return { platform: 'unknown', body: { msgtype: 'markdown', markdown: { content: md } } };

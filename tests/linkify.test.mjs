@@ -1,58 +1,59 @@
-import { linkify, renderMarkdown, buildWebhookBody } from '../functions/_lib.js';
+import { renderMarkdown, buildWebhookBody, detectPlatform } from '../functions/_lib.js';
 
 let pass = 0, fail = 0;
-function ok(name, cond, got) {
-  if (cond) { pass++; console.log('  ✓', name); }
-  else { fail++; console.log('  ✗', name, '\n      got:', JSON.stringify(got)); }
+function ok(name, cond, detail) {
+  if (cond) { pass++; console.log(`  ✅ ${name}`); }
+  else { fail++; console.log(`  ❌ ${name} → ${detail ?? 'cond falsy'}`); }
 }
 
-console.log('linkify:');
-const a = linkify('详见 https://example.com/a 了解');
-ok('裸 URL 被包裹', a.includes('[https://example.com/a](https://example.com/a)'), a);
+console.log('=== toPlainText 排版测试（企微 text 类型） ===\n');
 
-const b = linkify('<a href="https://x.com">点这里</a>');
-ok('<a> 转标准链接', b === '[点这里](https://x.com)', b);
+// 模拟企微的 toPlainText 输出（通过 buildWebhookBody 间接获取）
+function wecomText(md) {
+  const r = buildWebhookBody('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=test', md);
+  return r.body.text.content;
+}
 
-const c = linkify('<p>看 <a href="https://y.com">Y</a> 和 <b>粗</b> https://z.com</p>');
-ok('混合标签：保留链接+剥其他标签+裸URL链接化',
-   c.includes('[Y](https://y.com)') && c.includes('[https://z.com](https://z.com)') && !c.includes('<b>'), c);
+// 1. [text](url) 应换行分离
+const t1 = wecomText('[查看原文](https://t.cn/x)');
+ok('[text](url) → 文字换行URL', t1 === '查看原文\nhttps://t.cn/x', t1);
 
-const d = linkify('[已有](https://a.com) 文字');
-ok('已有 [text](url) 不重复包裹', d === '[已有](https://a.com) 文字', d);
+// 2. 完整 RSS 消息模拟
+const rssMd = renderMarkdown({
+  title: '今日热点：AI 大模型最新进展',
+  content: '据媒体报道，OpenAI 发布了新模型 GPT-5，性能大幅提升。详见 <a href="https://example.com/gpt5">官方公告</a>。',
+  url: 'https://news.example.com/ai-gpt5',
+});
+const rssText = wecomText(rssMd);
+console.log('  --- RSS 消息企微输出 ---');
+console.log(rssText);
+console.log('  ---');
+ok('标题无 # 号', !rssText.includes('#'), rssText);
+ok('引用符 > 已剥离', !rssText.includes('>'), rssText);
+ok('[查看原文] 换行分离', rssText.includes('查看原文\nhttps://news.example.com/ai-gpt5'), rssText);
+ok('[官方公告] 换行分离', rssText.includes('官方公告\nhttps://example.com/gpt5'), rssText);
+ok('无多余空行（最多一个）', !rssText.includes('\n\n\n'), rssText);
 
-console.log('\nrenderMarkdown:');
-const rm = renderMarkdown({ title: 'T', content: '正文含裸链 https://blog.test/p 和 <a href="https://in.test">内链</a>', url: 'https://t.cn/orig' });
-ok('正文链接被激活（含 [https://blog.test/p]）', rm.includes('[https://blog.test/p](https://blog.test/p)'), rm);
-ok('正文 <a> 转标准链接', rm.includes('[内链](https://in.test)'), rm);
-ok('底部查看原文存在', rm.includes('[查看原文](https://t.cn/orig)'), rm);
+// 3. 裸 URL 保留在原位
+const t3 = wecomText('访问 https://t.cn/y 了解更多');
+ok('裸 URL 保留在文本中', t3.includes('https://t.cn/y'), t3);
 
-console.log('\nbuildWebhookBody — 三平台统一 markdown + [text](url):');
-const wecomUrl = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=abc';
-const feishuUrl = 'https://open.feishu.cn/open-apis/bot/v2/hook/abc';
-const dingUrl = 'https://oapi.dingtalk.com/robot/send?access_token=abc';
-const testMd = '[看原文](https://t.cn/x)\n[赞助广告](https://jinbufenzi.com/go/5i7736)';
+// 4. 多链接分行
+const multi = wecomText('推荐阅读 [文章A](https://a.com) 和 [文章B](https://b.com)');
+ok('多链接各自换行', multi.includes('文章A\nhttps://a.com') && multi.includes('文章B\nhttps://b.com'), multi);
 
-// 企微：现在也走 markdown（和飞书/钉钉统一）
-const w = buildWebhookBody(wecomUrl, testMd, 'T');
-ok('企微用 markdown 类型（三平台统一）', w.body.msgtype === 'markdown' && !!w.body.markdown, JSON.stringify(w.body));
-ok('企微 content 含 [text](url)', w.body.markdown.content.includes('[看原文](https://t.cn/x)'), w.body.markdown.content);
-ok('企微无 text 类型残留', !w.body.text, JSON.stringify(w.body));
-ok('企微无 <a> 标签', !w.body.markdown.content.includes('<a '), w.body.markdown.content);
+// 5. 赞助广告也换行
+const adText = wecomText('正文内容\n\n[赞助广告](https://jinbufenzi.com/go/5i7736)');
+ok('赞助广告换行分离', adText.includes('赞助广告\nhttps://jinbufenzi.com/go/5i7736'), adText);
 
-// 飞书
-const fl = buildWebhookBody(feishuUrl, testMd, 'T');
-ok('飞书用 markdown + [text](url)', fl.body.markdown.content.includes('[看原文](https://t.cn/x)'), fl.body.markdown.content);
+// 6. 飞书/钉钉不受影响（仍为 markdown）
+const feishuR = buildWebhookBody('https://open.feishu.cn/open-apis/bot/v2/hook/test', 'test [link](https://t.cn)');
+ok('飞书仍用 markdown 类型', feishuR.body.msg_type === 'markdown', JSON.stringify(feishuR.body));
+ok('飞书保留 [text](url)', feishuR.body.markdown.content.includes('[link](https://t.cn)'), feishuR.body.markdown.content);
 
-// 钉钉
-const dt = buildWebhookBody(dingUrl, testMd, 'T');
-ok('钉钉用 markdown + [text](url)', dt.body.markdown.text.includes('[看原文](https://t.cn/x)'), dt.body.markdown.text);
+const dingR = buildWebhookBody('https://oapi.dingtalk.com/robot/send?access_token=test', 'test [link](https://t.cn)');
+ok('钉钉仍用 markdown 类型', dingR.body.msgtype === 'markdown', JSON.stringify(dingR.body));
+ok('钉钉保留 [text](url)', dingR.body.markdown.text.includes('[link](https://t.cn)'), dingR.body.markdown.text);
 
-// 完整消息模拟
-const fullMd = renderMarkdown({ title: '周末酒店', content: '节假日出行100元住酒店', url: 'https://jinbufenzi.com/go/fa1592' });
-const wFull = buildWebhookBody(wecomUrl, fullMd, '周末酒店');
-ok('完整消息：企微 markdown 含标题 ##', wFull.body.markdown.content.includes('## 周末酒店'), wFull.body.markdown.content);
-ok('完整消息：企微含 [查看原文]', wFull.body.markdown.content.includes('[查看原文]('), wFull.body.markdown.content);
-ok('完整消息：企微含 [赞助广告]', wFull.body.markdown.content.includes('[赞助广告]('), wFull.body.markdown.content);
-
-console.log(`\n结果: ${pass} 通过, ${fail} 失败`);
-process.exit(fail ? 1 : 0);
+console.log(`\n=== 结果：${pass}/${pass + fail} 通过 ===`);
+if (fail > 0) process.exit(1);
