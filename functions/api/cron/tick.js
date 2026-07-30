@@ -14,7 +14,7 @@ import {
   bumpMonthly,
 } from '../../_lib.js';
 
-// 由 edgeone.json 的 schedules 每小时触发一次（cron: 0 * * * *）
+// 由 edgeone.json 的 schedules 每 2 小时触发一次（cron: 0 */2 * * *）
 
 // 单条推送并累计统计
 async function send(s, payload, stats) {
@@ -37,7 +37,7 @@ function markFail(src, now) {
   src.lastCheck = now;
 }
 
-// 由 edgeone.json 的 schedules 每小时触发一次（cron: 0 * * * *）
+// 由 edgeone.json 的 schedules 每 2 小时触发一次（cron: 0 */2 * * *）
 // 负责：
 //   1) RSS 每小时汇总推送（标题+链接，节省资源；订阅者关键词过滤）
 //   2) 定时群发（给所有人）
@@ -61,7 +61,7 @@ export async function onRequestPost() {
   let schedSent = 0;
   let chanSent = 0;
 
-  // 1) RSS 每小时汇总：抓取所有源，收集本小时内的新条目，一次性发送（仅标题+链接，节省资源）
+  // 1) RSS 每 2 小时汇总：抓取所有源，收集本周期内的新条目，一次性发送（仅标题+链接，节省资源）
   const rssBuffer = [];
   for (const src of sources) {
     src.stats = src.stats || { ok: 0, fail: 0 };
@@ -110,7 +110,7 @@ export async function onRequestPost() {
         lines.push(`- [${item.title}](${item.link})`);
       }
       if (!lines.length) continue;
-      const md = `## 📰 RSS 每小时汇总（共 ${lines.length} 条）\n${lines.join('\n')}${AD_FOOTER}`;
+      const md = `## 📰 RSS 汇总（共 ${lines.length} 条）\n${lines.join('\n')}${AD_FOOTER}`;
       const st = await pushMarkdown(s.botUrl, md, 'RSS 每小时汇总');
       if (st >= 200 && st < 300) rssSent += lines.length;
       else rssFailed++;

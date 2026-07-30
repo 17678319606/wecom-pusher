@@ -133,7 +133,8 @@ function toPlainText(md) {
   // 引用符
   s = s.replace(/^>\s*/gm, '');
   // 核心：[text](url) → text 换行 url（每对占两行，视觉清爽）
-  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, '$1\n$2');
+  // 特例：当 text === url 时（裸 URL 被 linkify 包裹成 [URL](URL)），只输出一次避免重复
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/gi, (m, text, url) => text === url ? url : `${text}\n${url}`);
   // 连续空行压缩
   s = s.replace(/\n{3,}/g, '\n\n').trim();
   return s;
