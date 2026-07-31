@@ -4,8 +4,9 @@ name: wecom-pusher hourly tick
 # 原生 schedule 静默不触发，已实测多次）。本工作流每小时 GET 一次 /api/cron/tick，
 # 由函数内部完成 RSS 汇总 / 定时群发 / 自定义频道推送。
 on:
-  schedule:
-    - cron: '0 * * * *'          # 每小时 UTC = 每小时北京时间（仅时区偏移，仍覆盖全部整点）
+# 已迁移到腾讯云服务器宝塔定时任务（webhook定时任务订阅推送），GitHub Actions 自动触发关闭
+# schedule:
+#   - cron: '0 * * * *'
   workflow_dispatch: {}          # 允许手动触发，便于验证
 permissions:
   contents: read
