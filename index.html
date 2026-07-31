@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>企微推送订阅</title>
+<meta name="description" content="推送订阅：填自己的企业微信 / 飞书 / 钉钉群机器人 Webhook，免费订阅 RSS 资讯源与自定义内容频道，支持关键词过滤、夜间静默与早报聚合。另有收藏推送小工具，一键把网页收藏推给自己。" />
+<meta name="keywords" content="推送订阅,企微推送,飞书机器人,钉钉机器人,RSS订阅,Webhook推送,收藏推送,资讯聚合" />
+<meta name="robots" content="index,follow" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="推送订阅 · 企微/飞书/钉钉 RSS 与自定义内容推送" />
+<meta property="og:description" content="填自己的群机器人 Webhook，免费订阅 RSS 与自定义内容频道，支持关键词过滤、夜间静默与早报聚合。" />
+<meta property="og:url" content="https://sub.jinbufenzi.com/" />
+<meta property="og:site_name" content="推送订阅" />
+<meta name="twitter:card" content="summary" />
+<link rel="canonical" href="https://sub.jinbufenzi.com/" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --pri:#07c160; --txt:#1f2329; --mut:#8a8f99; --bd:#e5e6eb; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; background:var(--bg); color:var(--txt); overflow-wrap:anywhere; word-break:break-word; overflow-x:hidden; }
+  img, video, iframe, svg { max-width:100%; height:auto; }
+  .wrap { max-width:560px; margin:0 auto; padding:16px; }
+  h1 { font-size:20px; margin:8px 0 4px; }
+  .sub { color:var(--mut); font-size:13px; margin-bottom:16px; }
+  .tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .tab { flex:1; text-align:center; padding:10px; border-radius:10px; background:var(--card); border:1px solid var(--bd); cursor:pointer; font-size:14px; }
+  .tab.active { border-color:var(--pri); color:var(--pri); font-weight:600; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:16px; margin-bottom:14px; }
+  label { display:block; font-size:13px; color:var(--mut); margin:12px 0 6px; }
+  input, textarea, select { width:100%; padding:10px; border:1px solid var(--bd); border-radius:8px; font-size:14px; background:#fff; }
+  textarea { min-height:70px; resize:vertical; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; }
+  .row > * { flex:1; min-width:0; }
+  button { width:100%; padding:12px; border:0; border-radius:10px; background:var(--pri); color:#fff; font-size:15px; font-weight:600; margin-top:14px; cursor:pointer; }
+  button.ghost { background:#fff; color:var(--pri); border:1px solid var(--pri); width:auto; padding:4px 12px; margin:0; font-size:12px; }
+  .src { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid #f0f1f3; font-size:14px; }
+  .src > * { min-width:0; }
+  .src input { width:auto; }
+  .src > * { min-width:0; }
+  .src .cname { flex:1 1 0; min-width:0; }
+  .src > button { flex:none; }
+  .tag { display:inline-block; font-size:11px; color:var(--pri); background:#e8f8ee; padding:1px 6px; border-radius:6px; margin-left:4px; }
+  .grp { font-size:13px; color:var(--txt); font-weight:600; margin:14px 0 4px; }
+  .msg { font-size:13px; margin-top:10px; padding:8px 10px; border-radius:8px; display:none; }
+  .msg.ok { background:#e8f8ee; color:#07c160; display:block; }
+  .msg.err { background:#fdecec; color:#e54545; display:block; }
+  .msg.warn { background:#fff7e6; color:#d48806; display:block; }
+  .hint { font-size:12px; color:var(--mut); margin-top:6px; line-height:1.5; }
+  .hidden { display:none; }
+  .cap { font-size:12px; color:var(--mut); margin-top:8px; }
+  .schedbox { margin-top:8px; }
+  .foot { max-width:560px; margin:24px auto 18px; padding:0 16px; text-align:center; font-size:12px; color:var(--mut); line-height:1.9; }
+  .foot a { color:var(--mut); text-decoration:none; }
+  .foot a:hover { color:var(--pri); }
+  .foot .sep { margin:0 6px; color:#d0d3d9; }
+  .ad-slot { max-width:560px; margin:0 auto 14px; padding:0 16px; }
+  .ad-slot:empty { display:none; }
+  .ad-slot > * { display:block; margin:0 auto; }
+  .topnav { display:flex; gap:8px; margin-bottom:12px; font-size:13px; }
+  .topnav a { color:var(--mut); text-decoration:none; padding:6px 12px; border-radius:8px; border:1px solid var(--bd); background:var(--card); }
+  .topnav a.active { color:var(--pri); border-color:var(--pri); font-weight:600; }
+  .topnav a:hover { color:var(--pri); }
+  .cta { display:block; text-align:center; padding:12px; background:var(--pri); color:#fff; border-radius:10px; font-weight:600; text-decoration:none; }
+  @media (max-width:480px) {
+    .wrap { padding:12px; }
+    h1 { font-size:18px; }
+    .card { padding:14px; }
+    input, textarea, select, button { font-size:14px; }
+    .tabs { gap:6px; }
+    .topnav { flex-wrap:wrap; }
+  }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "推送订阅",
+  "description": "填自己的企业微信/飞书/钉钉群机器人 Webhook，订阅 RSS 与自定义内容频道，支持关键词过滤、夜间静默与早报聚合；含收藏推送小工具。",
+  "url": "https://sub.jinbufenzi.com/",
+  "applicationCategory": "UtilitiesApplication",
+  "operatingSystem": "Any",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CNY" },
+  "inLanguage": "zh-CN"
+}
+</script>
+</head>
+<body>
+<div class="wrap">
+  <div class="topnav">
+    <a href="/" class="active">订阅首页</a>
+    <a href="/bookmark">收藏推送</a>
+  </div>
+  <h1>推送订阅</h1>
+  <div class="sub">填自己的机器人链接（企业微信 / 飞书 / 钉钉），订阅 RSS 源与自定义内容频道</div>
+
+  <div class="tabs" id="tabs">
+    <div class="tab active" id="tabSub" onclick="switchTab('sub')">订阅</div>
+    <div class="tab" id="tabAdmin" onclick="switchTab('admin')">管理</div>
+  </div>
+
+  <!-- 退订 -->
+  <div id="pUnsub" class="hidden">
+    <div class="card">
+      <h3 style="margin-top:0">确认退订？</h3>
+      <p class="hint">退订后你将不再收到该系统的推送。</p>
+      <button id="unsubBtn">确认退订</button>
+      <div class="msg" id="unsubMsg"></div>
+    </div>
+  </div>
+
+  <!-- 订阅 -->
+  <div id="pSub">
+    <div class="card">
+      <label>你的机器人 Webhook 地址</label>
+      <input id="botUrl" placeholder="企微 / 飞书 / 钉钉 群机器人 Webhook" />
+      <div class="hint">群 → 添加群机器人 → 复制 Webhook（支持企业微信、飞书、钉钉）</div>
+      <button class="ghost" style="width:auto;margin-top:8px" onclick="doCheck()">测试 Webhook</button>
+      <div class="msg" id="checkMsg"></div>
+
+      <div class="grp">RSS 源</div>
+      <div id="srcList"><div class="hint">加载中…</div></div>
+
+      <div class="grp">自定义内容频道</div>
+      <div id="chanList"><div class="hint">加载中…</div></div>
+
+      <label>关键词过滤（可选，最多 10 个）</label>
+      <input id="keywords" placeholder="用逗号分隔，如：AI,产品,融资（留空=全收）" />
+      <div class="hint">只接收标题/摘要包含这些词的 RSS 更新；自定义频道不受关键词影响</div>
+
+      <button onclick="doSubscribe()">订阅</button>
+      <div class="msg" id="subMsg"></div>
+    </div>
+    <div class="card">
+      <div class="cap">当前订阅人数：<span id="subCount">-</span></div>
+      <div class="cap">免费档约支持数万~十万订阅者（受 KV 单值 25MB 约束）；每日新增订阅上限约 1 万（写次数）。接近上限会提醒。</div>
+    </div>
+
+    <div class="card" id="embedCard">
+      <label>嵌入到你的网站（零成本引流）</label>
+      <div class="hint">把下面代码粘到任意网页，即可嵌入这个订阅组件——你的访客订阅后也会成为你的订阅者，形成流量回流。</div>
+      <textarea id="embedCode" readonly rows="3" style="font-size:12px;margin-top:8px"></textarea>
+      <button class="ghost" style="width:auto;margin-top:8px" onclick="copyEmbed()">复制嵌入代码</button>
+      <div class="msg" id="embedMsg"></div>
+    </div>
+  </div>
+
+  <!-- 管理 -->
+  <div id="pAdmin" class="hidden">
+    <div class="card">
+      <label>管理员 Token</label>
+      <input id="token" placeholder="ADMIN_TOKEN" />
+      <div class="hint">与部署时设置的环境变量 ADMIN_TOKEN 一致</div>
+    </div>
+
+    <div class="card">
+      <label>新增 RSS 源</label>
+      <input id="srcName" placeholder="源名称，如：少数派" />
+      <input id="srcUrl" placeholder="RSS 地址，如：https://sspai.com/feed" style="margin-top:8px" />
+      <input id="srcCat" placeholder="分类标签（可选）" style="margin-top:8px" />
+      <button id="srcSubmit" onclick="addSource()">添加源</button>
+      <button id="srcCancel" class="ghost hidden" style="margin-top:8px" onclick="cancelEditSource()">取消编辑</button>
+      <div class="msg" id="srcMsg"></div>
+      <div id="srcAdminList" class="hint" style="margin-top:10px">加载中…</div>
+    </div>
+
+    <div class="card">
+      <label>新增自定义内容频道</label>
+      <input id="chName" placeholder="频道名称，如：每日鸡汤" />
+      <input id="chCat" placeholder="分类标签（可选）" style="margin-top:8px" />
+      <textarea id="chContent" placeholder="预设内容（频道定时自动发送时使用，可选）" style="margin-top:8px"></textarea>
+      <select id="chMode" style="margin-top:8px">
+        <option value="none">不定时（仅手动发布）</option>
+        <option value="daily">每天定时</option>
+        <option value="weekly">每周定时</option>
+        <option value="monthly">每月定时</option>
+        <option value="yearly">每年定时</option>
+      </select>
+      <div id="chSchedBox" class="schedbox hidden">
+        <div class="row">
+          <div><label>时</label><input id="chHour" type="number" min="0" max="23" value="9" /></div>
+          <div><label>分</label><input id="chMin" type="number" min="0" max="59" value="0" /></div>
+        </div>
+        <div class="row" id="chDowBox" style="display:none"><div><label>星期(0=周日)</label><input id="chDow" type="number" min="0" max="6" value="1" /></div></div>
+        <div class="row" id="chDomBox" style="display:none"><div><label>日期(1-31)</label><input id="chDom" type="number" min="1" max="31" value="1" /></div></div>
+        <div class="row" id="chYmdBox" style="display:none"><div><label>月(1-12)</label><input id="chMonth" type="number" min="1" max="12" value="1" /></div><div><label>日(1-31)</label><input id="chDate" type="number" min="1" max="31" value="1" /></div></div>
+      </div>
+      <button id="chSubmit" onclick="addChannel()">添加频道</button>
+      <button id="chCancel" class="ghost hidden" style="margin-top:8px" onclick="cancelEditChannel()">取消编辑</button>
+      <div class="msg" id="chMsg"></div>
+      <div id="chList" class="hint" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <label>发布 / 推送</label>
+      <input id="pTitle" placeholder="标题" />
+      <textarea id="pContent" placeholder="正文内容"></textarea>
+      <input id="pUrl" placeholder="原文链接（可选）" style="margin-top:8px" />
+
+      <label>发送对象</label>
+      <select id="pTarget">
+        <option value="all">所有人</option>
+        <option value="channel">指定频道</option>
+      </select>
+      <select id="pChannel" class="hidden" style="margin-top:8px"></select>
+
+      <label>是否定时（给所有人）</label>
+      <select id="pMode">
+        <option value="now">立即发送</option>
+        <option value="daily">每天定时</option>
+        <option value="weekly">每周定时</option>
+        <option value="monthly">每月定时</option>
+        <option value="yearly">每年定时</option>
+      </select>
+      <div id="schedBox" class="schedbox hidden">
+        <div class="row">
+          <div><label>时</label><input id="pHour" type="number" min="0" max="23" value="9" /></div>
+          <div><label>分</label><input id="pMin" type="number" min="0" max="59" value="0" /></div>
+        </div>
+        <div class="row" id="dowBox" style="display:none"><div><label>星期(0=周日)</label><input id="pDow" type="number" min="0" max="6" value="1" /></div></div>
+        <div class="row" id="domBox" style="display:none"><div><label>日期(1-31)</label><input id="pDom" type="number" min="1" max="31" value="1" /></div></div>
+        <div class="row" id="ymdBox" style="display:none"><div><label>月(1-12)</label><input id="pMonth" type="number" min="1" max="12" value="1" /></div><div><label>日(1-31)</label><input id="pDate" type="number" min="1" max="31" value="1" /></div></div>
+      </div>
+
+      <button onclick="doPush()">发送</button>
+      <div class="msg" id="pushMsg"></div>
+    </div>
+
+    <div class="card">
+      <label>订阅管理（机器人地址已脱敏）</label>
+      <button class="ghost" style="width:auto" onclick="loadSubs()">刷新订阅列表</button>
+      <div id="subList" class="hint" style="margin-top:10px">点「刷新订阅列表」查看</div>
+    </div>
+
+    <div class="card">
+      <label>底部广告设置（JS / HTML 片段）</label>
+      <textarea id="adHtml" placeholder="粘贴广告代码，如 <a href='https://...'><img src='...' /></a> 或 <script src='...'></script>；留空并取消启用即关闭"></textarea>
+      <label style="margin-top:8px"><input type="checkbox" id="adEnabled" /> 启用页面底部广告</label>
+      <button onclick="saveAd()">保存广告设置</button>
+      <div class="msg" id="adMsg"></div>
+    </div>
+
+    <div class="card">
+      <label>数据概览（留存度量）</label>
+      <div id="statBox" class="hint">点「刷新」查看连续服务天数与当月回顾</div>
+      <button class="ghost" style="width:auto;margin-top:8px" onclick="loadStats()">刷新</button>
+    </div>
+
+    <div class="card">
+      <label>源健康（失效自愈状态）</label>
+      <button class="ghost" style="width:auto;margin-top:4px" onclick="loadHealth()">刷新</button>
+      <div id="healthBox" class="hint" style="margin-top:10px">点「刷新」查看各 RSS 源抓取状态</div>
+    </div>
+
+    <div class="card">
+      <label>我的收藏（第二大脑）</label>
+      <button class="ghost" style="width:auto;margin-top:4px" onclick="loadBookmarks()">刷新</button>
+      <div id="bmTags" class="quick" style="display:none"></div>
+      <div id="bmList" class="hint" style="margin-top:10px">点「刷新」查看已收藏内容（按标签筛选）</div>
+    </div>
+
+    <div class="card">
+      <label>配置导出 / 备份</label>
+      <div class="hint">导出全部配置（源 / 频道 / 定时群发 / 广告）为 JSON，便于备份与迁移。</div>
+      <button class="ghost" style="width:auto;margin-top:8px" onclick="exportCfg()">导出配置 JSON</button>
+    </div>
+
+    <div class="card">
+      <div class="cap">订阅人数：<span id="adminCount">-</span></div>
+      <div class="msg warn hidden" id="adminWarn"></div>
+    </div>
+  </div>
+</div>
+
+<div id="ad-slot" class="ad-slot"></div>
+
+<footer class="foot">
+  <div>
+    <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">豫ICP备2024069686号</a>
+    <span class="sep">·</span>
+    <a href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=41132402411815" target="_blank" rel="noopener">豫公网安备41132402411815号</a>
+  </div>
+  <div style="margin-top:4px">
+    <a href="https://jinbufenzi.com/505.html" target="_blank" rel="noopener">投放广告联系管理员</a>
+  </div>
+</footer>
+
+<script>
+const api = (p, opt) => fetch(p, opt).then(r => r.json().catch(()=>({})));
+function switchTab(t){ document.getElementById('tabSub').classList.toggle('active', t==='sub'); document.getElementById('tabAdmin').classList.toggle('active', t==='admin'); document.getElementById('pSub').classList.toggle('hidden', t!=='sub'); document.getElementById('pAdmin').classList.toggle('hidden', t!=='admin'); }
+function show(id, ok, text, warn){ const e=document.getElementById(id); e.className='msg '+(warn?'warn':(ok?'ok':'err')); e.textContent=text; }
+function ping(e){ try { const i = new Image(); i.src = '/api/track?e='+encodeURIComponent(e)+'&_='+Date.now(); } catch(_){} }
+const esc = (s) => String(s==null?'':s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+let allChannels = []; let allSources = []; let editingChannelId = null; let editingSourceId = null;
+const params = new URLSearchParams(location.search);
+const preSrc = params.get('source');
+const preChan = params.get('channel');
+
+async function loadSources(){
+  const list = await api('/api/sources');
+  const box = document.getElementById('srcList');
+  if(list.length){ box.innerHTML = list.map(s=>`<label class="src"><input type="checkbox" value="${esc(s.id)}" ${preSrc===s.id?'checked':''}/><span class="cname">${esc(s.name)}</span>${s.category?`<span class="tag">${esc(s.category)}</span>`:''}</label>`).join(''); }
+  else box.innerHTML = '<div class="hint">暂无源，去「管理」添加一个</div>';
+}
+async function loadAdminSources(){
+  const list = await api('/api/sources');
+  allSources = list;
+  const box = document.getElementById('srcAdminList');
+  if(!box) return;
+  if(!list.length){ box.innerHTML = '暂无源'; return; }
+  box.innerHTML = list.map(s=>`<div class="src"><span class="cname">${esc(s.name)}</span>${s.category?`<span class="tag">${esc(s.category)}</span>`:''}<button class="ghost" onclick="editSource('${esc(s.id)}')">编辑</button><button class="ghost" onclick="delSource('${esc(s.id)}')">删</button></div>`).join('');
+}
+async function loadChannels(){
+  const list = await api('/api/channels');
+  allChannels = list;
+  const box = document.getElementById('chanList');
+  if(list.length){ box.innerHTML = list.map(c=>`<label class="src"><input type="checkbox" value="${esc(c.id)}" ${preChan===c.id?'checked':''}/><span class="cname">${esc(c.name)}</span>${c.category?`<span class="tag">${esc(c.category)}</span>`:''}</label>`).join(''); }
+  else box.innerHTML = '<div class="hint">暂无频道，去「管理」添加</div>';
+  const cl = document.getElementById('chList');
+  if(cl) cl.innerHTML = list.length? list.map(c=>`<div class="src"><span class="cname">${esc(c.name)}</span>${c.category?`<span class="tag">${esc(c.category)}</span>`:''}<button class="ghost" onclick="editChannel('${esc(c.id)}')">编辑</button><button class="ghost" onclick="delChannel('${esc(c.id)}')">删</button></div>`).join('') : '暂无频道';
+  const pc = document.getElementById('pChannel');
+  if(pc) pc.innerHTML = list.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+}
+async function loadCount(){
+  const c = await api('/api/subscribe');
+  document.getElementById('subCount').textContent = c.count ?? '-';
+  document.getElementById('adminCount').textContent = c.count ?? '-';
+  const warn = document.getElementById('adminWarn');
+  if(c.count > 90000){ warn.classList.remove('hidden'); warn.textContent = '订阅者已超 9 万，接近 KV 单值 25MB 上限，建议分片/外置数据库'; }
+  else warn.classList.add('hidden');
+}
+
+async function doCheck(){
+  const botUrl = document.getElementById('botUrl').value.trim();
+  if(!botUrl){ show('checkMsg', false, '请先填写 Webhook 地址'); return; }
+  show('checkMsg', true, '正在发送测试消息…', true);
+  const r = await api('/api/check', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({url: botUrl})});
+  if(r.ok) show('checkMsg', true, '✅ '+(r.platform||'')+' 自检成功，测试消息已送达你的机器人');
+  else show('checkMsg', false, '❌ '+(r.error||'自检失败'));
+}
+
+async function doSubscribe(){
+  const botUrl = document.getElementById('botUrl').value.trim();
+  const sources = [...document.querySelectorAll('#srcList input:checked')].map(i=>i.value);
+  const channels = [...document.querySelectorAll('#chanList input:checked')].map(i=>i.value);
+  const keywords = document.getElementById('keywords').value.split(',').map(k=>k.trim()).filter(Boolean).slice(0,10);
+  const r = await api('/api/subscribe', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({botUrl, sources, channels, keywords})});
+  if(r.ok){ show('subMsg', true, '订阅成功！新内容会推到你的机器人'); if(r.warn) show('subMsg', true, '订阅成功！但'+r.warn, true); loadCount(); }
+  else show('subMsg', false, r.error || '订阅失败');
+}
+
+async function addSource(){
+  const token = document.getElementById('token').value.trim();
+  const name = document.getElementById('srcName').value.trim();
+  const url = document.getElementById('srcUrl').value.trim();
+  const category = document.getElementById('srcCat').value.trim();
+  let r;
+  if(editingSourceId){
+    r = await api('/api/sources?token='+encodeURIComponent(token)+'&id='+encodeURIComponent(editingSourceId), {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, url, category})});
+  } else {
+    r = await api('/api/sources?token='+encodeURIComponent(token), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, url, category})});
+  }
+  if(r.ok){ show('srcMsg', true, editingSourceId?'已保存修改':'源已添加'); cancelEditSource(); loadAdminSources(); loadSources(); }
+  else show('srcMsg', false, r.error || '操作失败');
+}
+function setSourceEditMode(on){
+  document.getElementById('srcSubmit').textContent = on ? '保存修改' : '添加源';
+  document.getElementById('srcCancel').classList.toggle('hidden', !on);
+}
+function editSource(id){
+  const s = allSources.find(x=>x.id===id); if(!s) return;
+  editingSourceId = id;
+  document.getElementById('srcName').value = s.name || '';
+  document.getElementById('srcUrl').value = s.url || '';
+  document.getElementById('srcCat').value = s.category || '';
+  setSourceEditMode(true);
+  show('srcMsg', true, '正在编辑源：'+(s.name||''), true);
+  document.getElementById('srcName').focus();
+  document.getElementById('pAdmin').scrollIntoView({behavior:'smooth', block:'start'});
+}
+function cancelEditSource(){
+  editingSourceId = null;
+  document.getElementById('srcName').value='';
+  document.getElementById('srcUrl').value='';
+  document.getElementById('srcCat').value='';
+  setSourceEditMode(false);
+  const m=document.getElementById('srcMsg'); m.textContent=''; m.className='msg';
+}
+async function delSource(id){
+  if(editingSourceId===id) cancelEditSource();
+  const token = document.getElementById('token').value.trim();
+  const r = await api('/api/sources?token='+encodeURIComponent(token)+'&id='+encodeURIComponent(id), {method:'DELETE'});
+  if(r.ok){ loadAdminSources(); loadSources(); } else alert(r.error||'删除失败');
+}
+
+async function addChannel(){
+  const token = document.getElementById('token').value.trim();
+  const name = document.getElementById('chName').value.trim();
+  const category = document.getElementById('chCat').value.trim();
+  const content = document.getElementById('chContent').value;
+  const mode = document.getElementById('chMode').value;
+  const body = { name, category, content };
+  if(mode!=='none'){
+    const hour=+document.getElementById('chHour').value, minute=+document.getElementById('chMin').value;
+    if(mode==='daily') body.schedule={type:'daily',hour,minute};
+    if(mode==='weekly') body.schedule={type:'weekly',hour,minute,dow:+document.getElementById('chDow').value};
+    if(mode==='monthly') body.schedule={type:'monthly',hour,minute,dom:+document.getElementById('chDom').value};
+    if(mode==='yearly') body.schedule={type:'yearly',hour,minute,month:+document.getElementById('chMonth').value,date:+document.getElementById('chDate').value};
+  } else { body.schedule = null; }
+  let r;
+  if(editingChannelId){
+    r = await api('/api/channels?token='+encodeURIComponent(token)+'&id='+encodeURIComponent(editingChannelId), {method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  } else {
+    r = await api('/api/channels?token='+encodeURIComponent(token), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  }
+  if(r.ok){ show('chMsg', true, editingChannelId?'已保存修改':'频道已添加'); cancelEditChannel(); loadChannels(); }
+  else show('chMsg', false, r.error || '操作失败');
+}
+function setChannelEditMode(on){
+  document.getElementById('chSubmit').textContent = on ? '保存修改' : '添加频道';
+  document.getElementById('chCancel').classList.toggle('hidden', !on);
+}
+function editChannel(id){
+  const c = allChannels.find(x=>x.id===id); if(!c) return;
+  editingChannelId = id;
+  document.getElementById('chName').value = c.name || '';
+  document.getElementById('chCat').value = c.category || '';
+  document.getElementById('chContent').value = c.content || '';
+  const mode = c.schedule ? c.schedule.type : 'none';
+  document.getElementById('chMode').value = mode;
+  const box = document.getElementById('chSchedBox');
+  box.classList.toggle('hidden', mode==='none');
+  document.getElementById('chDowBox').style.display = mode==='weekly'?'flex':'none';
+  document.getElementById('chDomBox').style.display = mode==='monthly'?'flex':'none';
+  document.getElementById('chYmdBox').style.display = mode==='yearly'?'flex':'none';
+  const sc = c.schedule || {};
+  if(sc.hour!==undefined) document.getElementById('chHour').value = sc.hour;
+  if(sc.minute!==undefined) document.getElementById('chMin').value = sc.minute;
+  if(mode==='weekly' && sc.dow!==undefined) document.getElementById('chDow').value = sc.dow;
+  if(mode==='monthly' && sc.dom!==undefined) document.getElementById('chDom').value = sc.dom;
+  if(mode==='yearly'){ if(sc.month!==undefined) document.getElementById('chMonth').value=sc.month; if(sc.date!==undefined) document.getElementById('chDate').value=sc.date; }
+  setChannelEditMode(true);
+  show('chMsg', true, '正在编辑频道：'+(c.name||''), true);
+  document.getElementById('chName').focus();
+  document.getElementById('pAdmin').scrollIntoView({behavior:'smooth', block:'start'});
+}
+function cancelEditChannel(){
+  editingChannelId = null;
+  document.getElementById('chName').value='';
+  document.getElementById('chCat').value='';
+  document.getElementById('chContent').value='';
+  document.getElementById('chMode').value='none';
+  document.getElementById('chSchedBox').classList.add('hidden');
+  document.getElementById('chDowBox').style.display='none';
+  document.getElementById('chDomBox').style.display='none';
+  document.getElementById('chYmdBox').style.display='none';
+  setChannelEditMode(false);
+  const m=document.getElementById('chMsg'); m.textContent=''; m.className='msg';
+}
+async function delChannel(id){
+  if(editingChannelId===id) cancelEditChannel();
+  const token = document.getElementById('token').value.trim();
+  const r = await api('/api/channels?token='+encodeURIComponent(token)+'&id='+encodeURIComponent(id), {method:'DELETE'});
+  if(r.ok){ show('chMsg', true, '已删除'); loadChannels(); } else show('chMsg', false, r.error || '删除失败');
+}
+
+async function loadSubs(){
+  const token = document.getElementById('token').value.trim();
+  const box = document.getElementById('subList');
+  if(!token){ box.innerHTML = '<span class="hint">请先在上方填写管理员 Token</span>'; return; }
+  const r = await api('/api/subs?token='+encodeURIComponent(token));
+  if(r.error){ box.innerHTML = '<span class="hint">'+r.error+'</span>'; return; }
+  if(!r.subs || !r.subs.length){ box.innerHTML = '暂无订阅'; return; }
+  box.innerHTML = r.subs.map(s=>`<div class="src" style="align-items:flex-start">
+    <div style="flex:1">
+      <div>${s.platform} · ${s.bot}</div>
+      <div class="hint">源 ${s.sources} · 频道 ${s.channels}${s.keywords&&s.keywords.length?(' · 词:'+s.keywords.join('/')):''}</div>
+    </div>
+    <button class="ghost" onclick="delSub('${s.id}')">删除</button>
+  </div>`).join('');
+}
+async function delSub(id){
+  const token = document.getElementById('token').value.trim();
+  const r = await api('/api/subs?token='+encodeURIComponent(token)+'&id='+encodeURIComponent(id), {method:'DELETE'});
+  if(r.ok){ loadSubs(); loadCount(); } else alert(r.error || '删除失败');
+}
+
+async function saveAd(){
+  const token = document.getElementById('token').value.trim();
+  const html = document.getElementById('adHtml').value;
+  const enabled = document.getElementById('adEnabled').checked;
+  const r = await api('/api/ad?token='+encodeURIComponent(token), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({html, enabled})});
+  if(r.ok) show('adMsg', true, '广告设置已保存'); else show('adMsg', false, r.error || '保存失败');
+}
+
+const fmtDate = (ts) => ts ? new Date(ts + 8*3600*1000).toISOString().slice(0,16).replace('T',' ') : '-';
+async function loadStats(){
+  const r = await api('/api/stats');
+  const box = document.getElementById('statBox');
+  if(r.error){ box.textContent = '加载失败'; return; }
+  const m = r.mstat || {};
+  box.innerHTML =
+    `<div style="font-size:15px;margin-bottom:6px">🔥 连续服务 <b>${r.streak}</b> 天（自 ${r.lastDate||'-'}）</div>` +
+    `<div class="hint">本月（${r.month}）回顾：早报 ${m.digest||0} · 定时群发 ${m.sched||0} · 频道 ${m.chan||0} · RSS 即时 ${m.rss||0} · 收藏 ${m.bookmark||0}</div>` +
+    `<div class="hint" style="margin-top:4px">订阅源 ${r.sources} 个${r.suspect?` · <span style="color:#e54545">${r.suspect} 个疑似失效</span>`:''}</div>`;
+}
+async function loadHealth(){
+  const list = await api('/api/sources');
+  const box = document.getElementById('healthBox');
+  if(!list.length){ box.innerHTML = '暂无源'; return; }
+  box.innerHTML = list.map(s=>{
+    const st = s.suspect ? '<span style="color:#e54545">疑似失效(连败'+s.failCount+')</span>'
+      : (s.failCount>0 ? '<span style="color:#d48806">近期'+s.failCount+'次失败</span>' : '<span style="color:#07c160">正常</span>');
+    return `<div class="src"><div style="flex:1">${s.name}${s.category?` <span class="tag">${s.category}</span>`:''}<div class="hint">最后检查 ${fmtDate(s.lastCheck)}</div></div>${st}</div>`;
+  }).join('');
+}
+let bmCurTag = '';
+async function loadBookmarks(tag){
+  const token = document.getElementById('token').value.trim();
+  if(!token){ document.getElementById('bmList').innerHTML = '<span class="hint">请先在上方填写管理员 Token</span>'; return; }
+  bmCurTag = tag || '';
+  const r = await api('/api/bookmark?token='+encodeURIComponent(token)+(bmCurTag?('&tag='+encodeURIComponent(bmCurTag)):''));
+  if(r.error){ document.getElementById('bmList').innerHTML = '<span class="hint">'+r.error+'</span>'; return; }
+  const tagBox = document.getElementById('bmTags');
+  tagBox.style.display = r.tags && r.tags.length ? 'flex' : 'none';
+  tagBox.innerHTML = '<button onclick="loadBookmarks()">全部</button>' + (r.tags||[]).map(t=>`<button onclick="loadBookmarks('${t.replace(/'/g,"")}')">${t}</button>`).join('');
+  const list = document.getElementById('bmList');
+  if(!r.bookmarks || !r.bookmarks.length){ list.innerHTML = '暂无收藏'; return; }
+  list.innerHTML = r.bookmarks.map(b=>{
+    const tags = (b.tags||[]).map(t=>`<span class="tag">${t}</span>`).join(' ');
+    const link = b.url ? `<a href="${b.url}" target="_blank" rel="noopener" style="color:var(--pri)">原文</a>` : '';
+    return `<div class="src" style="align-items:flex-start"><div style="flex:1"><div style="font-weight:600">${b.title}</div>${b.content?`<div class="hint">${b.content.slice(0,60)}</div>`:''}${tags?`<div style="margin-top:4px">${tags}</div>`:''}<div class="hint">${fmtDate(b.ts)} ${link}</div></div><button class="ghost" onclick="delBm('${b.id}')">删</button></div>`;
+  }).join('');
+}
+async function delBm(id){
+  const token = document.getElementById('token').value.trim();
+  const r = await api('/api/bookmark?token='+encodeURIComponent(token)+'&id='+encodeURIComponent(id), {method:'DELETE'});
+  if(r.ok) loadBookmarks(bmCurTag); else alert(r.error || '删除失败');
+}
+async function exportCfg(){
+  const token = document.getElementById('token').value.trim();
+  if(!token){ alert('请先在上方填写管理员 Token'); return; }
+  const r = await api('/api/export?token='+encodeURIComponent(token));
+  if(r.error){ alert(r.error); return; }
+  const blob = new Blob([JSON.stringify(r, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'wecom-pusher-config-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.getElementById('chMode').addEventListener('change', e=>{
+  const m=e.target.value; const box=document.getElementById('chSchedBox');
+  box.classList.toggle('hidden', m==='none');
+  document.getElementById('chDowBox').style.display = m==='weekly'?'flex':'none';
+  document.getElementById('chDomBox').style.display = m==='monthly'?'flex':'none';
+  document.getElementById('chYmdBox').style.display = m==='yearly'?'flex':'none';
+});
+document.getElementById('pMode').addEventListener('change', e=>{
+  const m=e.target.value; const box=document.getElementById('schedBox');
+  box.classList.toggle('hidden', m==='now');
+  document.getElementById('dowBox').style.display = m==='weekly'?'flex':'none';
+  document.getElementById('domBox').style.display = m==='monthly'?'flex':'none';
+  document.getElementById('ymdBox').style.display = m==='yearly'?'flex':'none';
+});
+document.getElementById('pTarget').addEventListener('change', e=>{
+  document.getElementById('pChannel').classList.toggle('hidden', e.target.value!=='channel');
+});
+
+async function doPush(){
+  const token = document.getElementById('token').value.trim();
+  const mode = document.getElementById('pMode').value;
+  const tgt = document.getElementById('pTarget').value;
+  const body = { token, title:document.getElementById('pTitle').value.trim(), content:document.getElementById('pContent').value, url:document.getElementById('pUrl').value.trim(), target:'all' };
+  if(tgt==='channel') body.channelId = document.getElementById('pChannel').value;
+  if(mode!=='now'){
+    const hour=+document.getElementById('pHour').value, minute=+document.getElementById('pMin').value;
+    if(mode==='daily') body.schedule={type:'daily',hour,minute};
+    if(mode==='weekly') body.schedule={type:'weekly',hour,minute,dow:+document.getElementById('pDow').value};
+    if(mode==='monthly') body.schedule={type:'monthly',hour,minute,dom:+document.getElementById('pDom').value};
+    if(mode==='yearly') body.schedule={type:'yearly',hour,minute,month:+document.getElementById('pMonth').value,date:+document.getElementById('pDate').value};
+  }
+  const r = await api('/api/push', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+  if(r.ok) show('pushMsg', true, mode==='now'? `已发送：成功 ${r.sent} / 失败 ${r.failed}` : '定时群发已创建');
+  else show('pushMsg', false, r.error || '发送失败');
+}
+
+// 退订 / 小组件模式
+if(params.get('unsub')){
+  document.getElementById('tabs').classList.add('hidden');
+  document.getElementById('pSub').classList.add('hidden');
+  document.getElementById('pAdmin').classList.add('hidden');
+  document.getElementById('pUnsub').classList.remove('hidden');
+  document.getElementById('unsubBtn').onclick = async () => {
+    const r = await api(`/api/subscribe?id=${encodeURIComponent(params.get('unsub'))}&token=${encodeURIComponent(params.get('token')||'')}`);
+    if(r.ok) show('unsubMsg', true, '已退订'); else show('unsubMsg', false, r.error || '退订失败');
+  };
+} else if(params.get('widget')){
+  document.getElementById('tabs').classList.add('hidden');
+  document.getElementById('pAdmin').classList.add('hidden');
+}
+
+// 嵌入代码（自推荐，形成回流）：展示可直接拷贝的 iframe 片段
+const embedCode = `<iframe src="${location.origin}/?widget=1" width="100%" height="560" style="border:0;border-radius:12px" title="推送订阅"></iframe>`;
+const ec = document.getElementById('embedCode'); if (ec) ec.value = embedCode;
+function copyEmbed(){ try { navigator.clipboard.writeText(embedCode).then(()=>show('embedMsg',true,'已复制，去你的网站粘贴即可 ✓')).catch(()=>{}); } catch(_){} }
+
+// 零成本埋点：UV 每日去重(cookie) + PV 10% 采样 + widget 嵌入计数
+(function track(){
+  try {
+    const p = new URLSearchParams(location.search);
+    const today = new Date(Date.now()+8*3600*1000).toISOString().slice(0,10);
+    const m = document.cookie.match(/(?:^|; )tk_seen=([^;]+)/);
+    if(!m || m[1] !== today){ document.cookie = 'tk_seen='+today+';path=/;max-age=86400'; ping('uv'); }
+    if(Math.random() < 0.1) ping('pv');
+    if(p.has('widget')) ping('widget');
+  } catch(e){}
+})();
+
+// 渲染底部广告位（管理员后台设置；重新执行注入的 <script> 以支持广告 JS）
+function renderAd(html){
+  const slot = document.getElementById('ad-slot');
+  if(!slot) return;
+  slot.innerHTML = html;
+  slot.querySelectorAll('script').forEach(s => {
+    const n = document.createElement('script');
+    if (s.src) n.src = s.src; else n.textContent = s.textContent;
+    s.replaceWith(n);
+  });
+}
+(async () => {
+  try { const ad = await api('/api/ad'); if (ad && ad.enabled && ad.html) renderAd(ad.html); } catch(e){}
+})();
+// PWA 注册（移动端 Android 可安装，系统分享一键收藏）
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(()=>{})); }
+
+loadSources(); loadChannels(); loadAdminSources(); loadCount();
+</script>
+</body>
+</html>
